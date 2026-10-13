@@ -48,6 +48,7 @@
     display: flex;
     border: 2px solid var(--panel-line-aka);
     min-width: 0;
+    min-height: 0;
     position: relative;
     transition: box-shadow 0.3s, opacity 0.3s;
   }
@@ -61,6 +62,7 @@
     flex-direction: column;
     width: 24%;
     min-width: 70px;
+    min-height: 0;
     order: 0;
   }
   .side.aka .cats { border-right: 2px solid var(--panel-line-aka); }
@@ -76,13 +78,17 @@
     border-bottom: 1px solid var(--panel-line-aka);
     padding: 2px 0;
     position: relative;
+    overflow: hidden;
+    min-height: 0;
+    min-width: 0;
   }
   .side.ao .cat-item { border-bottom-color: var(--panel-line-ao); }
   .cat-item:last-child { border-bottom: none; }
   .cat-label { font-size: clamp(14px, 2.8vw, 24px); color: #ddd; margin-bottom: 2px; }
   .cat-num {
-    font-size: clamp(40px, min(11.5vw, 14vh), 130px);
+    font-size: 90px;
     font-weight: 800; color: var(--text-white); line-height: 1;
+    white-space: nowrap;
   }
   .cat-minus {
     position: absolute; right: 2px; bottom: 2px;
@@ -100,6 +106,10 @@
     position: relative;
     min-width: 0;
     cursor: pointer;
+    padding-top: clamp(32px, 7vh, 60px);
+    overflow: hidden;
+    min-height: 0;
+    min-width: 0;
   }
   .senshu-dot {
     position: absolute;
@@ -117,13 +127,14 @@
   .senshu-dot.lit-ao { background: var(--ao); border-color: #8aa0ff; box-shadow: 0 0 14px var(--ao); }
 
   .total-score {
-    font-size: clamp(90px, 24vw, 280px);
+    font-size: 200px;
     font-weight: 800;
     line-height: 1;
     color: var(--aka);
     text-shadow: 0 0 18px rgba(230,57,74,0.55);
     font-variant-numeric: tabular-nums;
     letter-spacing: -2px;
+    white-space: nowrap;
   }
   .side.ao .total-score { color: var(--ao); text-shadow: 0 0 18px rgba(58,91,220,0.6); }
 
@@ -144,12 +155,15 @@
     justify-content: center;
     position: relative;
     cursor: pointer;
+    overflow: hidden;
+    min-width: 0;
+    min-height: 0;
   }
   .penalty-label { font-size: clamp(14px, 2.8vw, 24px); color: var(--yellow); position: absolute; top: 6px; left: 8px; }
   .penalty-num {
-    font-size: clamp(32px, min(11vw, 15vh), 80px);
+    font-size: 40px;
     font-weight: 800; color: #555; line-height: 1.05;
-    text-align: center; padding: 0 4px; overflow-wrap: break-word;
+    text-align: center; overflow-wrap: break-word;
   }
   .penalty-minus {
     position: absolute; right: 6px; bottom: 6px;
@@ -171,7 +185,9 @@
     align-items: center;
     justify-content: center;
     min-width: 0;
+    min-height: 0;
     position: relative;
+    overflow: hidden;
   }
   .timer-display {
     font-size: clamp(80px, 16vw, 190px);
@@ -388,6 +404,47 @@
     return s.ippon*POINTS.ippon + s.wazaari*POINTS.wazaari + s.yuko*POINTS.yuko;
   }
 
+  // shrink/grow el's font-size by binary search until it fills (availW x availH) as much as possible
+  function fitTextElement(el, availW, availH, minFont, maxFont){
+    if (availW <= 0 || availH <= 0) return;
+    minFont = minFont || 10;
+    maxFont = maxFont || 500;
+    var lo = minFont, hi = maxFont, best = minFont;
+    for (var i = 0; i < 18; i++){
+      var mid = (lo + hi) / 2;
+      el.style.fontSize = mid + 'px';
+      var w = el.scrollWidth, h = el.scrollHeight;
+      if (w <= availW && h <= availH) { best = mid; lo = mid; } else { hi = mid; }
+    }
+    el.style.fontSize = best + 'px';
+  }
+
+  function fitAllText(){
+    // 一本/技あり/有効 — single-line number, fills remaining height below the label
+    document.querySelectorAll('.cat-item').forEach(function(item){
+      var label = item.querySelector('.cat-label');
+      var num = item.querySelector('.cat-num');
+      var availW = item.clientWidth - 14;
+      var availH = item.clientHeight - label.offsetHeight - 10;
+      fitTextElement(num, availW, availH, 18, 300);
+    });
+    // 得点合計 — single-line number, fills the score area (minus space reserved for the senshu dot)
+    document.querySelectorAll('.main-score-area').forEach(function(area){
+      var num = area.querySelector('.total-score');
+      var availW = area.clientWidth - 24;
+      var availH = area.clientHeight - 20;
+      fitTextElement(num, availW, availH, 50, 600);
+    });
+    // カテゴリー(注意/反則) — allowed to wrap across lines, fills the whole box
+    document.querySelectorAll('.penalty-box').forEach(function(box){
+      var num = box.querySelector('.penalty-num');
+      var availW = box.clientWidth - 16;
+      var availH = box.clientHeight - 16;
+      num.style.width = availW + 'px';
+      fitTextElement(num, availW, availH, 14, 260);
+    });
+  }
+
   function render(){
     ['aka','ao'].forEach(function(side){
       var s = state[side];
@@ -428,6 +485,8 @@
       if (winnerSide === 'aka') { aEl.classList.add('winner'); oEl.classList.add('loser'); }
       else if (winnerSide === 'ao') { oEl.classList.add('winner'); aEl.classList.add('loser'); }
     }
+
+    fitAllText();
   }
 
   function maybeAwardSenshu(side){
@@ -610,6 +669,12 @@
     state.timer.remaining = state.timer.duration;
     confirmOverlay.classList.remove('show');
     render();
+  });
+
+  var resizeTimer = null;
+  window.addEventListener('resize', function(){
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(fitAllText, 100);
   });
 
   loadSettings();
