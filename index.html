@@ -43,6 +43,10 @@
     flex: 1 1 auto;
     min-height: 0;
   }
+  /* ②画面の入れ替え/③２画面の反転: どちらか一方がONのとき左右を入れ替え、
+     両方ONのときは打ち消し合って元に戻る(render時にXORで判定) */
+  .app.layout-reversed .top-row { flex-direction: row-reverse; }
+  .app.layout-reversed .bottom-row { flex-direction: row-reverse; }
   .side {
     flex: 1;
     display: flex;
@@ -68,6 +72,11 @@
   .side.aka .cats { border-right: 2px solid var(--panel-line-aka); }
   .side.ao .cats { border-left: 2px solid var(--panel-line-ao); order: 2; }
   .side.ao .main-score-area { order: 1; }
+  /* ②/③で画面が反転しているときは、各サイド内部の並びも入れ替えて
+     カテゴリーバーが常に画面の外側に来るようにする */
+  .app.layout-reversed .side.aka .cats { order: 2; }
+  .app.layout-reversed .side.aka .main-score-area { order: 1; }
+  .app.layout-reversed .side.ao .cats { order: 0; }
 
   .cat-item {
     flex: 1;
@@ -123,6 +132,9 @@
   }
   .side.aka .senshu-dot { right: 10px; }
   .side.ao .senshu-dot { left: 10px; }
+  /* 反転時も先取ドットは常に中央寄りに来るよう左右を入れ替える */
+  .app.layout-reversed .side.aka .senshu-dot { right: auto; left: 10px; }
+  .app.layout-reversed .side.ao .senshu-dot { left: auto; right: 10px; }
   .senshu-dot.lit-aka { background: var(--aka); border-color: #ff8a95; box-shadow: 0 0 14px var(--aka); }
   .senshu-dot.lit-ao { background: var(--ao); border-color: #8aa0ff; box-shadow: 0 0 14px var(--ao); }
 
@@ -258,11 +270,25 @@
     .side { border-width: 2px; }
     .bottom-row { height: 32vh; }
     .cats { width: 30%; }
+    .app.layout-reversed .top-row { flex-direction: column-reverse; }
   }
+
+  .toggle-row {
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    background: #1b1b1b; border: 1px solid #333; border-radius: 8px;
+    padding: 10px 12px; margin-bottom: 14px; text-align: left;
+  }
+  .toggle-row .toggle-label { font-size: 14px; color: #ddd; }
+  .toggle-row .toggle-desc { font-size: 11px; color: #888; margin-top: 2px; }
+  .toggle-switch-btn {
+    flex: 0 0 auto; min-width: 64px; padding: 8px 14px; border-radius: 20px;
+    border: 1px solid #444; background: #2a2a2a; color: #ccc; font-size: 13px; cursor: pointer;
+  }
+  .toggle-switch-btn.on { background: #2b6fe0; color: #fff; border-color: #2b6fe0; }
 </style>
 </head>
 <body>
-<div class="app">
+<div class="app" id="app">
   <div class="top-row">
     <div class="side aka" id="side-aka">
       <div class="cats">
@@ -353,6 +379,23 @@
       <input type="number" id="set-sec" min="0" max="59" value="30">
       <span>秒</span>
     </div>
+
+    <h4>画面の入れ替え</h4>
+    <div class="toggle-row">
+      <div>
+        <div class="toggle-label">赤(アカ)・青(アオ)の表示を入れ替え</div>
+      </div>
+      <button class="toggle-switch-btn" id="toggle-swap-colors">OFF</button>
+    </div>
+
+    <h4>２画面の反転</h4>
+    <div class="toggle-row">
+      <div>
+        <div class="toggle-label">操作画面とモニター画面の左右を反転</div>
+      </div>
+      <button class="toggle-switch-btn" id="toggle-mirror-screens">OFF</button>
+    </div>
+
     <div class="panel-buttons">
       <button class="btn-secondary" id="settings-cancel">キャンセル</button>
       <button class="btn-primary" id="settings-apply">セット</button>
@@ -379,7 +422,9 @@
     aka: { ippon:0, wazaari:0, yuko:0, penalty:0 },
     ao:  { ippon:0, wazaari:0, yuko:0, penalty:0 },
     senshu: null, // 'aka' | 'ao' | null
-    timer: { duration: 90, remaining: 90, running: false, intervalId: null }
+    timer: { duration: 90, remaining: 90, running: false, intervalId: null },
+    // ②画面の入れ替え(赤青の表示位置) / ③２画面の反転(操作画面⇔モニター画面)
+    display: { swapColors: false, mirrorScreens: false }
   };
 
   function loadSettings(){
@@ -391,13 +436,27 @@
           state.timer.duration = s.duration;
           state.timer.remaining = s.duration;
         }
+        if (s) {
+          state.display.swapColors = !!s.swapColors;
+          state.display.mirrorScreens = !!s.mirrorScreens;
+        }
       }
     } catch(e) {}
   }
   function saveSettings(){
     try {
-      localStorage.setItem('karate-tokuten-settings', JSON.stringify({ duration: state.timer.duration }));
+      localStorage.setItem('karate-tokuten-settings', JSON.stringify({
+        duration: state.timer.duration,
+        swapColors: state.display.swapColors,
+        mirrorScreens: state.display.mirrorScreens
+      }));
     } catch(e) {}
+  }
+
+  // ②と③はどちらか一方だけONなら左右反転、両方ONなら打ち消し合って元の表示に戻る
+  function applyDisplayLayout(){
+    var reversed = state.display.swapColors !== state.display.mirrorScreens;
+    document.getElementById('app').classList.toggle('layout-reversed', reversed);
   }
 
   function total(side){
@@ -718,12 +777,37 @@
     scheduleBuzzerTone(ctx, now + 1.0, 0.95);
   }
 
+  // 設定: ②画面の入れ替え/③２画面の反転 トグルボタンの表示を現在の状態に合わせる
+  var swapColorsBtn = document.getElementById('toggle-swap-colors');
+  var mirrorScreensBtn = document.getElementById('toggle-mirror-screens');
+  function updateDisplayToggleButtons(){
+    swapColorsBtn.textContent = state.display.swapColors ? 'ON' : 'OFF';
+    swapColorsBtn.classList.toggle('on', state.display.swapColors);
+    mirrorScreensBtn.textContent = state.display.mirrorScreens ? 'ON' : 'OFF';
+    mirrorScreensBtn.classList.toggle('on', state.display.mirrorScreens);
+  }
+  swapColorsBtn.addEventListener('click', function(){
+    playTapSound();
+    state.display.swapColors = !state.display.swapColors;
+    updateDisplayToggleButtons();
+    applyDisplayLayout();
+    saveSettings();
+  });
+  mirrorScreensBtn.addEventListener('click', function(){
+    playTapSound();
+    state.display.mirrorScreens = !state.display.mirrorScreens;
+    updateDisplayToggleButtons();
+    applyDisplayLayout();
+    saveSettings();
+  });
+
   // settings overlay
   var settingsOverlay = document.getElementById('settings-overlay');
   document.getElementById('settings-btn').addEventListener('click', function(){
     playTapSound();
     document.getElementById('set-min').value = Math.floor(state.timer.duration/60);
     document.getElementById('set-sec').value = state.timer.duration%60;
+    updateDisplayToggleButtons();
     settingsOverlay.classList.add('show');
   });
   document.getElementById('settings-cancel').addEventListener('click', function(){
@@ -781,6 +865,8 @@
   });
 
   loadSettings();
+  applyDisplayLayout();
+  updateDisplayToggleButtons();
   render();
 })();
 </script>
