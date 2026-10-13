@@ -538,10 +538,12 @@
   // wire up score taps
   document.getElementById('aka-score-area').addEventListener('click', function(e){
     if (e.target.closest('.senshu-dot')) return;
+    playTapSound();
     incCat('aka','yuko');
   });
   document.getElementById('ao-score-area').addEventListener('click', function(e){
     if (e.target.closest('.senshu-dot')) return;
+    playTapSound();
     incCat('ao','yuko');
   });
 
@@ -550,6 +552,7 @@
     ['ippon','wazaari','yuko'].forEach(function(cat){
       document.getElementById(side+'-'+cat).addEventListener('click', function(ev){
         ev.stopPropagation();
+        playTapSound();
         incCat(side, cat);
       });
     });
@@ -558,39 +561,48 @@
   document.querySelectorAll('.cat-minus').forEach(function(btn){
     btn.addEventListener('click', function(ev){
       ev.stopPropagation();
+      playTapSound();
       decCat(btn.dataset.side, btn.dataset.cat);
     });
   });
 
   document.getElementById('aka-senshu').addEventListener('click', function(ev){
-    ev.stopPropagation(); toggleSenshuManual('aka');
+    ev.stopPropagation(); playTapSound(); toggleSenshuManual('aka');
   });
   document.getElementById('ao-senshu').addEventListener('click', function(ev){
-    ev.stopPropagation(); toggleSenshuManual('ao');
+    ev.stopPropagation(); playTapSound(); toggleSenshuManual('ao');
   });
 
   document.getElementById('aka-penalty-box').addEventListener('click', function(e){
     if (e.target.closest('.penalty-minus')) return;
+    playTapSound();
     cyclePenalty('aka');
   });
   document.getElementById('ao-penalty-box').addEventListener('click', function(e){
     if (e.target.closest('.penalty-minus')) return;
+    playTapSound();
     cyclePenalty('ao');
   });
   document.querySelectorAll('.penalty-minus').forEach(function(btn){
     btn.addEventListener('click', function(ev){
       ev.stopPropagation();
+      playTapSound();
       decPenalty(btn.dataset.side);
     });
   });
 
   // timer
+  var warnedAt15 = false;
   function tick(){
     if (state.timer.remaining > 0) {
       state.timer.remaining--;
+      if (state.timer.remaining === 15 && !warnedAt15) {
+        warnedAt15 = true;
+        playBuzzer15();
+      }
       if (state.timer.remaining <= 0) {
         stopTimer();
-        beep();
+        playBuzzerEnd();
       }
     }
     render();
@@ -608,57 +620,133 @@
   }
   function adjustTime(delta){
     state.timer.remaining = Math.max(0, state.timer.remaining + delta);
+    warnedAt15 = state.timer.remaining <= 15;
     if (state.timer.remaining <= 0 && state.timer.running) stopTimer();
     render();
   }
 
   // pressing the displayed time itself starts/stops the timer
   document.getElementById('timer-display').addEventListener('click', function(){
+    playTapSound();
     if (state.timer.running) stopTimer(); else startTimer();
   });
-  document.getElementById('timer-minus1').addEventListener('click', function(){ adjustTime(-1); });
-  document.getElementById('timer-plus1').addEventListener('click', function(){ adjustTime(1); });
+  document.getElementById('timer-minus1').addEventListener('click', function(){ playTapSound(); adjustTime(-1); });
+  document.getElementById('timer-plus1').addEventListener('click', function(){ playTapSound(); adjustTime(1); });
 
-  function beep(){
-    try {
-      var ctx = new (window.AudioContext || window.webkitAudioContext)();
-      var times = [0, 0.25, 0.5];
-      times.forEach(function(t){
-        var o = ctx.createOscillator();
-        var g = ctx.createGain();
-        o.frequency.value = 880;
-        o.connect(g); g.connect(ctx.destination);
-        g.gain.setValueAtTime(0.2, ctx.currentTime + t);
-        o.start(ctx.currentTime + t);
-        o.stop(ctx.currentTime + t + 0.18);
-      });
-    } catch(e) {}
+  // --- sound effects ---
+  var audioCtx = null;
+  function getAudioCtx(){
+    if (!audioCtx) {
+      try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch(e) { return null; }
+    }
+    if (audioCtx.state === 'suspended') { try { audioCtx.resume(); } catch(e) {} }
+    return audioCtx;
+  }
+
+  // 操作音: 金属系の短いクリック音(タップ全般で再生)
+  function playTapSound(){
+    var ctx = getAudioCtx();
+    if (!ctx) return;
+    var now = ctx.currentTime;
+    // 短いノイズバースト(アタック感)
+    var bufLen = Math.floor(ctx.sampleRate * 0.04);
+    var buffer = ctx.createBuffer(1, bufLen, ctx.sampleRate);
+    var data = buffer.getChannelData(0);
+    for (var i = 0; i < bufLen; i++){
+      data[i] = (Math.random()*2-1) * Math.pow(1 - i/bufLen, 2.5);
+    }
+    var noise = ctx.createBufferSource();
+    noise.buffer = buffer;
+    var bandpass = ctx.createBiquadFilter();
+    bandpass.type = 'bandpass';
+    bandpass.frequency.value = 3400;
+    bandpass.Q.value = 3;
+    var noiseGain = ctx.createGain();
+    noiseGain.gain.setValueAtTime(0.35, now);
+    noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.045);
+    noise.connect(bandpass); bandpass.connect(noiseGain); noiseGain.connect(ctx.destination);
+    noise.start(now); noise.stop(now + 0.045);
+
+    // 金属的な高音のピン(2音)で「カチッ」という質感を足す
+    [2800, 4200].forEach(function(freq, idx){
+      var o = ctx.createOscillator();
+      var g = ctx.createGain();
+      o.type = 'triangle';
+      o.frequency.value = freq;
+      g.gain.setValueAtTime(0.12/(idx+1), now);
+      g.gain.exponentialRampToValueAtTime(0.0001, now + 0.07);
+      o.connect(g); g.connect(ctx.destination);
+      o.start(now); o.stop(now + 0.07);
+    });
+  }
+
+  // 共通のブザー音(1本のトーン)を指定した開始時刻・長さで鳴らす
+  function scheduleBuzzerTone(ctx, startTime, dur){
+    var o = ctx.createOscillator();
+    o.type = 'sawtooth';
+    o.frequency.setValueAtTime(220, startTime);
+    var g = ctx.createGain();
+    g.gain.setValueAtTime(0.0001, startTime);
+    g.gain.linearRampToValueAtTime(0.32, startTime + 0.03);
+    g.gain.setValueAtTime(0.32, startTime + Math.max(0, dur - 0.08));
+    g.gain.linearRampToValueAtTime(0.0001, startTime + dur);
+    // トレモロでブザーらしい質感を出す
+    var lfo = ctx.createOscillator();
+    lfo.type = 'square';
+    lfo.frequency.value = 48;
+    var lfoGain = ctx.createGain();
+    lfoGain.gain.value = 0.11;
+    lfo.connect(lfoGain); lfoGain.connect(g.gain);
+    o.connect(g); g.connect(ctx.destination);
+    o.start(startTime); o.stop(startTime + dur);
+    lfo.start(startTime); lfo.stop(startTime + dur);
+  }
+
+  // 試合終了15秒前の音: ブザー音(約1秒)
+  function playBuzzer15(){
+    var ctx = getAudioCtx();
+    if (!ctx) return;
+    scheduleBuzzerTone(ctx, ctx.currentTime, 1.0);
+  }
+
+  // 試合終了の音: 15秒前の音を2回繰り返す(約2秒)
+  function playBuzzerEnd(){
+    var ctx = getAudioCtx();
+    if (!ctx) return;
+    var now = ctx.currentTime;
+    scheduleBuzzerTone(ctx, now, 0.95);
+    scheduleBuzzerTone(ctx, now + 1.0, 0.95);
   }
 
   // settings overlay
   var settingsOverlay = document.getElementById('settings-overlay');
   document.getElementById('settings-btn').addEventListener('click', function(){
+    playTapSound();
     document.getElementById('set-min').value = Math.floor(state.timer.duration/60);
     document.getElementById('set-sec').value = state.timer.duration%60;
     settingsOverlay.classList.add('show');
   });
   document.getElementById('settings-cancel').addEventListener('click', function(){
+    playTapSound();
     settingsOverlay.classList.remove('show');
   });
   document.querySelectorAll('.quick-presets button').forEach(function(btn){
     btn.addEventListener('click', function(){
+      playTapSound();
       var sec = parseInt(btn.dataset.sec, 10);
       document.getElementById('set-min').value = Math.floor(sec/60);
       document.getElementById('set-sec').value = sec%60;
     });
   });
   document.getElementById('settings-apply').addEventListener('click', function(){
+    playTapSound();
     var m = parseInt(document.getElementById('set-min').value, 10) || 0;
     var s = parseInt(document.getElementById('set-sec').value, 10) || 0;
     var total = Math.max(0, m*60 + s);
     stopTimer();
     state.timer.duration = total;
     state.timer.remaining = total;
+    warnedAt15 = total <= 15;
     saveSettings();
     settingsOverlay.classList.remove('show');
     render();
@@ -667,17 +755,21 @@
   // reset all
   var confirmOverlay = document.getElementById('confirm-overlay');
   document.getElementById('reset-all-btn').addEventListener('click', function(){
+    playTapSound();
     confirmOverlay.classList.add('show');
   });
   document.getElementById('confirm-cancel').addEventListener('click', function(){
+    playTapSound();
     confirmOverlay.classList.remove('show');
   });
   document.getElementById('confirm-ok').addEventListener('click', function(){
+    playTapSound();
     stopTimer();
     state.aka = { ippon:0, wazaari:0, yuko:0, penalty:0 };
     state.ao  = { ippon:0, wazaari:0, yuko:0, penalty:0 };
     state.senshu = null;
     state.timer.remaining = state.timer.duration;
+    warnedAt15 = state.timer.duration <= 15;
     confirmOverlay.classList.remove('show');
     render();
   });
