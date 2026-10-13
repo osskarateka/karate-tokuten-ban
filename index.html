@@ -243,6 +243,7 @@
   }
   .footer-bar button:active { background: #2a2a2a; }
   .footer-bar #reset-all-btn { color: #ff8a8a; border-color: #7a1522; }
+  .footer-bar #undo-btn { color: #ffd27a; border-color: #6b5420; }
 
   .overlay {
     position: fixed; inset: 0; background: rgba(0,0,0,0.75);
@@ -275,12 +276,57 @@
     padding: 6px 10px; font-size: 13px; cursor: pointer;
   }
 
+  /* 試合終了時の勝敗表示(色旗イラスト+中央テキスト) */
+  .result-overlay { z-index: 20; background: rgba(0,0,0,0.92); }
+  .result-content {
+    display: flex; flex-direction: column; align-items: center;
+    gap: clamp(10px, 2.5vh, 24px); padding: 20px; width: min(640px, 94vw);
+  }
+  .result-flags {
+    display: flex; align-items: center; justify-content: center;
+    width: 100%; min-height: clamp(140px, 26vh, 260px);
+  }
+  .flag-svg {
+    width: clamp(130px, 24vw, 230px); height: auto;
+    transform-origin: 16% 94%;
+    filter: drop-shadow(0 4px 10px rgba(0,0,0,0.5));
+  }
+  .result-text {
+    font-size: clamp(30px, 6.5vw, 76px); font-weight: 800; color: #fff;
+    text-align: center; line-height: 1.2; white-space: nowrap;
+  }
+  #result-close { padding: 12px 28px; border-radius: 8px; border: none; font-size: 16px; cursor: pointer; }
+
+  /* 勝利表示: 勝った方の旗だけを中央に表示し、揺れるアニメーションを付ける */
+  .result-overlay.win-aka .flag-ao,
+  .result-overlay.win-ao .flag-aka { display: none; }
+  .result-overlay.win-aka .flag-aka,
+  .result-overlay.win-ao .flag-ao { animation: flagwave 1.6s ease-in-out infinite; }
+  .result-overlay.win-aka .result-text { color: var(--aka); }
+  .result-overlay.win-ao .result-text { color: var(--ao); }
+
+  /* 引き分け(判定): 赤旗・青旗をクロスさせて表示 */
+  .result-overlay.draw .flag-aka { transform: rotate(-32deg); margin-right: -12%; }
+  .result-overlay.draw .flag-ao { transform: rotate(32deg) scaleX(-1); margin-left: -12%; }
+  .result-overlay.draw .result-text { color: var(--yellow); font-size: clamp(22px, 5vw, 56px); }
+
+  @keyframes flagwave {
+    0%, 100% { transform: rotate(-6deg); }
+    50% { transform: rotate(6deg); }
+  }
+
   @media (max-width: 700px) {
     .top-row { flex-direction: column; }
     .side { border-width: 2px; }
     .bottom-row { height: 32vh; }
     .cats { width: 30%; }
     .app.layout-reversed .top-row { flex-direction: column-reverse; }
+  }
+
+  /* ボタンが5つになったので、1行に収まりきらない幅ではラップさせる */
+  @media (max-width: 900px) {
+    .footer-bar { flex-wrap: wrap; gap: 8px; }
+    .footer-bar button { flex: 1 1 28%; max-width: none; }
   }
 
   .toggle-row {
@@ -369,6 +415,7 @@
     <button id="timer-minus1">−1秒</button>
     <button id="settings-btn">設定</button>
     <button id="timer-plus1">+1秒</button>
+    <button id="undo-btn">一つ前に戻す</button>
     <button id="reset-all-btn">試合をリセット</button>
   </div>
 </div>
@@ -423,10 +470,29 @@
   </div>
 </div>
 
+<div class="overlay result-overlay" id="result-overlay">
+  <div class="result-content">
+    <div class="result-flags">
+      <svg class="flag-svg flag-aka" viewBox="0 0 120 100" aria-hidden="true">
+        <rect x="10" y="4" width="9" height="92" rx="3" fill="#1a1a1a"/>
+        <path d="M19,9 C50,-2 72,20 101,9 C95,25 95,41 101,57 C72,46 50,68 19,57 Z" fill="var(--aka)"/>
+      </svg>
+      <svg class="flag-svg flag-ao" viewBox="0 0 120 100" aria-hidden="true">
+        <rect x="10" y="4" width="9" height="92" rx="3" fill="#1a1a1a"/>
+        <path d="M19,9 C50,-2 72,20 101,9 C95,25 95,41 101,57 C72,46 50,68 19,57 Z" fill="var(--ao)"/>
+      </svg>
+    </div>
+    <div class="result-text" id="result-text">赤の勝利</div>
+    <button class="btn-secondary" id="result-close">閉じる</button>
+  </div>
+</div>
+
 <script>
 (function(){
   var POINTS = { ippon: 3, wazaari: 2, yuko: 1 };
   var PENALTY_LABELS = ['', '注意1', '注意2', '注意3', '反則注意', '反則'];
+  var history = []; // 「一つ前に戻す」用の状態スナップショット(得点・カテゴリー・先取のみ)
+  var HISTORY_LIMIT = 30;
 
   var state = {
     aka: { ippon:0, wazaari:0, yuko:0, penalty:0 },
@@ -434,7 +500,8 @@
     senshu: null, // 'aka' | 'ao' | null
     timer: { duration: 90, remaining: 90, running: false, intervalId: null },
     // ②画面の入れ替え(赤青の表示位置) / ③２画面の反転(操作画面⇔モニター画面)
-    display: { swapColors: false, mirrorScreens: false }
+    display: { swapColors: false, mirrorScreens: false },
+    resultShown: false // 試合終了時の勝敗表示を出しているか
   };
 
   function loadSettings(){
@@ -556,17 +623,54 @@
     var oEl = document.getElementById('side-ao');
     aEl.classList.remove('winner','loser');
     oEl.classList.remove('winner','loser');
-    if (!state.timer.running && state.timer.remaining <= 0 && state.timer.duration > 0) {
-      var ta = total('aka'), to = total('ao');
-      var winnerSide = null;
-      if (ta > to) winnerSide = 'aka';
-      else if (to > ta) winnerSide = 'ao';
-      else if (state.senshu) winnerSide = state.senshu;
-      if (winnerSide === 'aka') { aEl.classList.add('winner'); oEl.classList.add('loser'); }
-      else if (winnerSide === 'ao') { oEl.classList.add('winner'); aEl.classList.add('loser'); }
+    var matchEnded = !state.timer.running && state.timer.remaining <= 0 && state.timer.duration > 0;
+    if (matchEnded) {
+      var result = decideResult();
+      if (result.type === 'win' && result.side === 'aka') { aEl.classList.add('winner'); oEl.classList.add('loser'); }
+      else if (result.type === 'win' && result.side === 'ao') { oEl.classList.add('winner'); aEl.classList.add('loser'); }
+      // 引き分けの場合はどちらも通常表示のまま(dimmedにしない)
     }
+    renderResultOverlay(matchEnded);
 
     fitAllText();
+  }
+
+  // 勝敗判定: ①得点の高い方 → ②得点同点なら先取 → ③先取なしなら一本の数 →
+  // ④一本も同数なら技ありの数 → ⑤それでも同じなら引き分け
+  function decideResult(){
+    var ta = total('aka'), to = total('ao');
+    if (ta > to) return { type: 'win', side: 'aka' };
+    if (to > ta) return { type: 'win', side: 'ao' };
+    if (state.senshu === 'aka') return { type: 'win', side: 'aka' };
+    if (state.senshu === 'ao') return { type: 'win', side: 'ao' };
+    if (state.aka.ippon > state.ao.ippon) return { type: 'win', side: 'aka' };
+    if (state.ao.ippon > state.aka.ippon) return { type: 'win', side: 'ao' };
+    if (state.aka.wazaari > state.ao.wazaari) return { type: 'win', side: 'aka' };
+    if (state.ao.wazaari > state.aka.wazaari) return { type: 'win', side: 'ao' };
+    return { type: 'draw' };
+  }
+
+  // 試合終了時の勝敗表示(色旗+中央テキスト)の表示/非表示を更新
+  function renderResultOverlay(matchEnded){
+    var overlay = document.getElementById('result-overlay');
+    if (!matchEnded || !state.resultShown) {
+      overlay.classList.remove('show');
+      return;
+    }
+    var result = decideResult();
+    var textEl = document.getElementById('result-text');
+    overlay.classList.remove('win-aka', 'win-ao', 'draw');
+    if (result.type === 'draw') {
+      overlay.classList.add('draw');
+      textEl.textContent = '引き分け(判定)';
+    } else if (result.side === 'aka') {
+      overlay.classList.add('win-aka');
+      textEl.textContent = '赤の勝利';
+    } else {
+      overlay.classList.add('win-ao');
+      textEl.textContent = '青の勝利';
+    }
+    overlay.classList.add('show');
   }
 
   function maybeAwardSenshu(side){
@@ -578,12 +682,28 @@
     }
   }
 
+  // 得点・カテゴリー・先取を変更する直前の状態を保存しておく(「一つ前に戻す」用)
+  function pushHistory(){
+    history.push(JSON.stringify({ aka: state.aka, ao: state.ao, senshu: state.senshu }));
+    if (history.length > HISTORY_LIMIT) history.shift();
+  }
+  function undoLast(){
+    if (history.length === 0) return;
+    var snap = JSON.parse(history.pop());
+    state.aka = snap.aka;
+    state.ao = snap.ao;
+    state.senshu = snap.senshu;
+    render();
+  }
+
   function incCat(side, cat){
+    pushHistory();
     state[side][cat]++;
     maybeAwardSenshu(side);
     render();
   }
   function decCat(side, cat){
+    pushHistory();
     if (state[side][cat] > 0) state[side][cat]--;
     // re-evaluate senshu if both back to 0
     if (total('aka') === 0 && total('ao') === 0) state.senshu = null;
@@ -591,15 +711,18 @@
   }
 
   function cyclePenalty(side){
+    pushHistory();
     state[side].penalty = (state[side].penalty + 1) % PENALTY_LABELS.length;
     render();
   }
   function decPenalty(side){
+    pushHistory();
     if (state[side].penalty > 0) state[side].penalty--;
     render();
   }
 
   function toggleSenshuManual(side){
+    pushHistory();
     state.senshu = (state.senshu === side) ? null : side;
     render();
   }
@@ -672,6 +795,7 @@
       if (state.timer.remaining <= 0) {
         stopTimer();
         playBuzzerEnd();
+        state.resultShown = true; // 試合終了: 勝敗表示を自動で出す
       }
     }
     render();
@@ -679,6 +803,7 @@
   function startTimer(){
     if (state.timer.running || state.timer.remaining <= 0) return;
     state.timer.running = true;
+    state.resultShown = false; // タイマーを再開したら勝敗表示は消す
     state.timer.intervalId = setInterval(tick, 1000);
     render();
   }
@@ -690,7 +815,10 @@
   function adjustTime(delta){
     state.timer.remaining = Math.max(0, state.timer.remaining + delta);
     warnedAt15 = state.timer.remaining <= 15;
-    if (state.timer.remaining <= 0 && state.timer.running) stopTimer();
+    if (state.timer.remaining <= 0) {
+      if (state.timer.running) stopTimer();
+      state.resultShown = true; // 手動で0にした場合も試合終了として勝敗表示を出す
+    }
     render();
   }
 
@@ -701,6 +829,26 @@
   });
   document.getElementById('timer-minus1').addEventListener('click', function(){ playTapSound(); adjustTime(-1); });
   document.getElementById('timer-plus1').addEventListener('click', function(){ playTapSound(); adjustTime(1); });
+
+  // 一つ前に戻す(直前の得点・カテゴリー・先取の操作を取り消す)
+  document.getElementById('undo-btn').addEventListener('click', function(){
+    playTapSound();
+    undoLast();
+  });
+
+  // 勝敗表示を閉じる(ボタン or 背景タップ)
+  var resultOverlay = document.getElementById('result-overlay');
+  document.getElementById('result-close').addEventListener('click', function(){
+    playTapSound();
+    state.resultShown = false;
+    render();
+  });
+  resultOverlay.addEventListener('click', function(e){
+    if (e.target === resultOverlay) {
+      state.resultShown = false;
+      render();
+    }
+  });
 
   // --- sound effects ---
   var audioCtx = null;
@@ -841,6 +989,7 @@
     state.timer.duration = total;
     state.timer.remaining = total;
     warnedAt15 = total <= 15;
+    state.resultShown = false;
     saveSettings();
     settingsOverlay.classList.remove('show');
     render();
@@ -864,6 +1013,8 @@
     state.senshu = null;
     state.timer.remaining = state.timer.duration;
     warnedAt15 = state.timer.duration <= 15;
+    state.resultShown = false;
+    history.length = 0;
     confirmOverlay.classList.remove('show');
     render();
   });
