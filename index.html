@@ -1,0 +1,611 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>空手 得点板</title>
+<style>
+  :root {
+    --bg: #000000;
+    --aka: #e6394a;
+    --aka-dim: #7a1522;
+    --ao: #3a5bdc;
+    --ao-dim: #16204d;
+    --yellow: #f2d43a;
+    --panel-line-aka: #e6394a;
+    --panel-line-ao: #3a5bdc;
+    --text-white: #f2f2f2;
+    --gray: #3a3a3a;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) { --bg: #000000; }
+  }
+  :root[data-theme="dark"] { --bg: #000000; }
+
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; }
+  html, body {
+    margin: 0; padding: 0; height: 100%;
+    background: var(--bg);
+    font-family: 'Hiragino Sans', 'Yu Gothic', 'Segoe UI', system-ui, sans-serif;
+    overflow: hidden;
+    color: var(--text-white);
+  }
+  .app {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    width: 100vw;
+  }
+  .topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 12px;
+    background: #0a0a0a;
+    border-bottom: 1px solid #222;
+    flex: 0 0 auto;
+  }
+  .topbar .title { font-size: 14px; color: #999; letter-spacing: 2px; }
+  .topbar button {
+    background: #1a1a1a; color: #ccc; border: 1px solid #333;
+    border-radius: 6px; padding: 6px 10px; font-size: 12px; cursor: pointer;
+  }
+  .topbar button:active { background: #2a2a2a; }
+
+  .top-row {
+    display: flex;
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+  .side {
+    flex: 1;
+    display: flex;
+    border: 2px solid var(--panel-line-aka);
+    min-width: 0;
+    position: relative;
+    transition: box-shadow 0.3s, opacity 0.3s;
+  }
+  .side.ao { border-color: var(--panel-line-ao); }
+  .side.winner { box-shadow: inset 0 0 40px 6px rgba(255,255,255,0.25); }
+  .side.loser { opacity: 0.55; }
+
+  .cats {
+    display: flex;
+    flex-direction: column;
+    width: 22%;
+    min-width: 62px;
+    border-right: 2px solid var(--panel-line-aka);
+  }
+  .side.ao .cats { border-right-color: var(--panel-line-ao); border-left: none; }
+  .side.aka .cats { order: 1; }
+  .side.ao .cats { order: 2; }
+  .main-score-area.aka-area { order: 2; }
+  .side.ao .main-score-area { order: 1; }
+
+  .cat-item {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    border-bottom: 1px solid var(--panel-line-aka);
+    padding: 2px 0;
+    position: relative;
+  }
+  .side.ao .cat-item { border-bottom-color: var(--panel-line-ao); }
+  .cat-item:last-child { border-bottom: none; }
+  .cat-label { font-size: clamp(11px, 2.2vw, 18px); color: #ddd; margin-bottom: 2px; }
+  .cat-num { font-size: clamp(20px, 5vw, 42px); font-weight: 700; color: var(--text-white); line-height: 1; }
+  .cat-minus {
+    position: absolute; right: 2px; bottom: 2px;
+    background: #1a1a1a; color: #888; border: 1px solid #333;
+    border-radius: 4px; width: 20px; height: 20px; font-size: 13px;
+    display: flex; align-items: center; justify-content: center; cursor: pointer;
+  }
+
+  .main-score-area {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    min-width: 0;
+    cursor: pointer;
+  }
+  .senshu-dot {
+    position: absolute;
+    top: 10px;
+    width: clamp(24px, 5vw, 44px);
+    height: clamp(24px, 5vw, 44px);
+    border-radius: 50%;
+    background: #2a2a2a;
+    border: 2px solid #444;
+    transition: all 0.25s;
+  }
+  .side.aka .senshu-dot { right: 10px; }
+  .side.ao .senshu-dot { left: 10px; }
+  .senshu-dot.lit-aka { background: var(--aka); border-color: #ff8a95; box-shadow: 0 0 14px var(--aka); }
+  .senshu-dot.lit-ao { background: var(--ao); border-color: #8aa0ff; box-shadow: 0 0 14px var(--ao); }
+
+  .total-score {
+    font-size: clamp(70px, 20vw, 220px);
+    font-weight: 800;
+    line-height: 1;
+    color: var(--aka);
+    text-shadow: 0 0 18px rgba(230,57,74,0.55);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -2px;
+  }
+  .side.ao .total-score { color: var(--ao); text-shadow: 0 0 18px rgba(58,91,220,0.6); }
+
+  .bottom-row {
+    display: flex;
+    flex: 0 0 auto;
+    height: 26vh;
+    min-height: 150px;
+    border-top: 1px solid #222;
+  }
+  .penalty-box {
+    flex: 0 0 22%;
+    min-width: 90px;
+    display: flex;
+    flex-direction: column;
+    border: 2px solid var(--yellow);
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    cursor: pointer;
+  }
+  .penalty-label { font-size: clamp(12px, 2.4vw, 20px); color: var(--yellow); position: absolute; top: 6px; left: 8px; }
+  .penalty-num { font-size: clamp(50px, 12vw, 110px); font-weight: 800; color: var(--text-white); line-height: 1; }
+  .penalty-minus {
+    position: absolute; right: 6px; bottom: 6px;
+    background: #1a1a1a; color: #999; border: 1px solid #444;
+    border-radius: 4px; width: 24px; height: 24px; font-size: 14px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .penalty-num.p1 { color: var(--yellow); }
+  .penalty-num.p2 { color: #ff9a2e; text-shadow: 0 0 10px rgba(255,154,46,0.6); }
+  .penalty-num.p3 { color: var(--aka); text-shadow: 0 0 12px rgba(230,57,74,0.7); }
+  .penalty-num.p4 { color: #ff2020; text-shadow: 0 0 16px rgba(255,32,32,0.9); animation: blink 0.8s infinite; }
+  @keyframes blink { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+  .timer-area {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-width: 0;
+    position: relative;
+  }
+  .timer-display {
+    font-size: clamp(60px, 14vw, 130px);
+    font-weight: 800;
+    color: var(--aka);
+    text-shadow: 0 0 16px rgba(230,57,74,0.5);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -1px;
+    cursor: pointer;
+  }
+  .timer-display.timeup { animation: blink 0.6s infinite; color: #ff2020; }
+  .timer-controls {
+    display: flex;
+    gap: 30px;
+    margin-top: 6px;
+  }
+  .timer-controls button {
+    background: none; border: none; color: #ddd; font-size: 26px; cursor: pointer;
+    padding: 4px 10px;
+  }
+  .timer-controls button:active { color: #fff; transform: scale(0.95); }
+
+  .overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.75);
+    display: none; align-items: center; justify-content: center; z-index: 10;
+  }
+  .overlay.show { display: flex; }
+  .panel {
+    background: #141414; border: 1px solid #333; border-radius: 12px;
+    padding: 20px; width: min(340px, 90vw);
+  }
+  .panel h3 { margin: 0 0 14px; font-size: 16px; color: #eee; text-align: center; }
+  .panel .row { display: flex; align-items: center; justify-content: center; gap: 10px; margin-bottom: 14px; }
+  .panel input {
+    width: 64px; font-size: 22px; text-align: center; background: #000;
+    color: #fff; border: 1px solid #444; border-radius: 6px; padding: 6px;
+  }
+  .panel .row span { font-size: 20px; color: #ccc; }
+  .panel-buttons { display: flex; gap: 10px; margin-top: 10px; }
+  .panel-buttons button {
+    flex: 1; padding: 10px; border-radius: 8px; border: none; font-size: 15px; cursor: pointer;
+  }
+  .btn-primary { background: #2b6fe0; color: #fff; }
+  .btn-secondary { background: #333; color: #ddd; }
+  .btn-danger { background: #7a1522; color: #fff; }
+
+  .quick-presets { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin-bottom: 14px; }
+  .quick-presets button {
+    background: #1e1e1e; border: 1px solid #333; color: #ccc; border-radius: 6px;
+    padding: 6px 10px; font-size: 13px; cursor: pointer;
+  }
+
+  @media (max-width: 700px) {
+    .top-row { flex-direction: column; }
+    .side { border-width: 2px; }
+    .bottom-row { height: 32vh; }
+    .cats { width: 30%; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="topbar">
+    <span class="title">🥋 空手 得点板</span>
+    <button id="reset-all-btn">試合リセット</button>
+  </div>
+
+  <div class="top-row">
+    <div class="side aka" id="side-aka">
+      <div class="cats">
+        <div class="cat-item">
+          <div class="cat-label">一本</div>
+          <div class="cat-num" id="aka-ippon">0</div>
+          <div class="cat-minus" data-side="aka" data-cat="ippon">−</div>
+        </div>
+        <div class="cat-item">
+          <div class="cat-label">技あり</div>
+          <div class="cat-num" id="aka-wazaari">0</div>
+          <div class="cat-minus" data-side="aka" data-cat="wazaari">−</div>
+        </div>
+        <div class="cat-item">
+          <div class="cat-label">有効</div>
+          <div class="cat-num" id="aka-yuko">0</div>
+          <div class="cat-minus" data-side="aka" data-cat="yuko">−</div>
+        </div>
+      </div>
+      <div class="main-score-area" id="aka-score-area">
+        <div class="senshu-dot" id="aka-senshu"></div>
+        <div class="total-score" id="aka-total">0</div>
+      </div>
+    </div>
+
+    <div class="side ao" id="side-ao">
+      <div class="main-score-area" id="ao-score-area">
+        <div class="senshu-dot" id="ao-senshu"></div>
+        <div class="total-score" id="ao-total">0</div>
+      </div>
+      <div class="cats">
+        <div class="cat-item">
+          <div class="cat-label">一本</div>
+          <div class="cat-num" id="ao-ippon">0</div>
+          <div class="cat-minus" data-side="ao" data-cat="ippon">−</div>
+        </div>
+        <div class="cat-item">
+          <div class="cat-label">技あり</div>
+          <div class="cat-num" id="ao-wazaari">0</div>
+          <div class="cat-minus" data-side="ao" data-cat="wazaari">−</div>
+        </div>
+        <div class="cat-item">
+          <div class="cat-label">有効</div>
+          <div class="cat-num" id="ao-yuko">0</div>
+          <div class="cat-minus" data-side="ao" data-cat="yuko">−</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="bottom-row">
+    <div class="penalty-box" id="aka-penalty-box">
+      <div class="penalty-label">カテゴリー</div>
+      <div class="penalty-num" id="aka-penalty">0</div>
+      <div class="penalty-minus" data-side="aka">−</div>
+    </div>
+    <div class="timer-area">
+      <div class="timer-display" id="timer-display">1:30</div>
+      <div class="timer-controls">
+        <button id="settings-btn" title="設定">⚙️</button>
+        <button id="startstop-btn" title="スタート/ストップ">⏱️</button>
+      </div>
+    </div>
+    <div class="penalty-box" id="ao-penalty-box">
+      <div class="penalty-label">カテゴリー</div>
+      <div class="penalty-num" id="ao-penalty">0</div>
+      <div class="penalty-minus" data-side="ao">−</div>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="settings-overlay">
+  <div class="panel">
+    <h3>タイマー設定</h3>
+    <div class="quick-presets">
+      <button data-sec="60">1:00</button>
+      <button data-sec="90">1:30</button>
+      <button data-sec="120">2:00</button>
+      <button data-sec="180">3:00</button>
+    </div>
+    <div class="row">
+      <input type="number" id="set-min" min="0" max="59" value="1">
+      <span>分</span>
+      <input type="number" id="set-sec" min="0" max="59" value="30">
+      <span>秒</span>
+    </div>
+    <div class="panel-buttons">
+      <button class="btn-secondary" id="settings-cancel">キャンセル</button>
+      <button class="btn-primary" id="settings-apply">セット</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="confirm-overlay">
+  <div class="panel">
+    <h3>試合をリセットしますか？</h3>
+    <div class="panel-buttons">
+      <button class="btn-secondary" id="confirm-cancel">キャンセル</button>
+      <button class="btn-danger" id="confirm-ok">リセットする</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  var POINTS = { ippon: 3, wazaari: 2, yuko: 1 };
+
+  var state = {
+    aka: { ippon:0, wazaari:0, yuko:0, penalty:0 },
+    ao:  { ippon:0, wazaari:0, yuko:0, penalty:0 },
+    senshu: null, // 'aka' | 'ao' | null
+    timer: { duration: 90, remaining: 90, running: false, intervalId: null }
+  };
+
+  function loadSettings(){
+    try {
+      var raw = localStorage.getItem('karate-tokuten-settings');
+      if (raw) {
+        var s = JSON.parse(raw);
+        if (s && typeof s.duration === 'number' && s.duration > 0) {
+          state.timer.duration = s.duration;
+          state.timer.remaining = s.duration;
+        }
+      }
+    } catch(e) {}
+  }
+  function saveSettings(){
+    try {
+      localStorage.setItem('karate-tokuten-settings', JSON.stringify({ duration: state.timer.duration }));
+    } catch(e) {}
+  }
+
+  function total(side){
+    var s = state[side];
+    return s.ippon*POINTS.ippon + s.wazaari*POINTS.wazaari + s.yuko*POINTS.yuko;
+  }
+
+  function render(){
+    ['aka','ao'].forEach(function(side){
+      var s = state[side];
+      document.getElementById(side+'-ippon').textContent = s.ippon;
+      document.getElementById(side+'-wazaari').textContent = s.wazaari;
+      document.getElementById(side+'-yuko').textContent = s.yuko;
+      document.getElementById(side+'-total').textContent = total(side);
+
+      var pEl = document.getElementById(side+'-penalty');
+      pEl.textContent = s.penalty;
+      pEl.className = 'penalty-num' + (s.penalty > 0 ? ' p'+s.penalty : '');
+
+      var dot = document.getElementById(side+'-senshu');
+      dot.classList.remove('lit-aka','lit-ao');
+      if (state.senshu === side) dot.classList.add('lit-'+side);
+    });
+
+    // timer
+    var t = state.timer.remaining;
+    var m = Math.floor(t/60);
+    var sec = t%60;
+    var disp = document.getElementById('timer-display');
+    disp.textContent = m + ':' + (sec<10?'0':'') + sec;
+    disp.classList.toggle('timeup', t<=0);
+
+    // winner highlight only when timer at 0 and not running
+    var aEl = document.getElementById('side-aka');
+    var oEl = document.getElementById('side-ao');
+    aEl.classList.remove('winner','loser');
+    oEl.classList.remove('winner','loser');
+    if (!state.timer.running && state.timer.remaining <= 0 && state.timer.duration > 0) {
+      var ta = total('aka'), to = total('ao');
+      var winnerSide = null;
+      if (ta > to) winnerSide = 'aka';
+      else if (to > ta) winnerSide = 'ao';
+      else if (state.senshu) winnerSide = state.senshu;
+      if (winnerSide === 'aka') { aEl.classList.add('winner'); oEl.classList.add('loser'); }
+      else if (winnerSide === 'ao') { oEl.classList.add('winner'); aEl.classList.add('loser'); }
+    }
+  }
+
+  function maybeAwardSenshu(side){
+    if (state.senshu === null) {
+      var otherSide = side === 'aka' ? 'ao' : 'aka';
+      if (total(side) > 0 && total(otherSide) === 0) {
+        state.senshu = side;
+      }
+    }
+  }
+
+  function incCat(side, cat){
+    state[side][cat]++;
+    maybeAwardSenshu(side);
+    render();
+  }
+  function decCat(side, cat){
+    if (state[side][cat] > 0) state[side][cat]--;
+    // re-evaluate senshu if both back to 0
+    if (total('aka') === 0 && total('ao') === 0) state.senshu = null;
+    render();
+  }
+
+  function cyclePenalty(side){
+    state[side].penalty = (state[side].penalty + 1) % 5;
+    render();
+  }
+  function decPenalty(side){
+    if (state[side].penalty > 0) state[side].penalty--;
+    render();
+  }
+
+  function toggleSenshuManual(side){
+    state.senshu = (state.senshu === side) ? null : side;
+    render();
+  }
+
+  // wire up score taps
+  document.getElementById('aka-score-area').addEventListener('click', function(e){
+    if (e.target.closest('.senshu-dot')) return;
+    incCat('aka','yuko');
+  });
+  document.getElementById('ao-score-area').addEventListener('click', function(e){
+    if (e.target.closest('.senshu-dot')) return;
+    incCat('ao','yuko');
+  });
+
+  // tapping individual category number increments that category directly
+  ['aka','ao'].forEach(function(side){
+    ['ippon','wazaari','yuko'].forEach(function(cat){
+      document.getElementById(side+'-'+cat).addEventListener('click', function(ev){
+        ev.stopPropagation();
+        incCat(side, cat);
+      });
+    });
+  });
+
+  document.querySelectorAll('.cat-minus').forEach(function(btn){
+    btn.addEventListener('click', function(ev){
+      ev.stopPropagation();
+      decCat(btn.dataset.side, btn.dataset.cat);
+    });
+  });
+
+  document.getElementById('aka-senshu').addEventListener('click', function(ev){
+    ev.stopPropagation(); toggleSenshuManual('aka');
+  });
+  document.getElementById('ao-senshu').addEventListener('click', function(ev){
+    ev.stopPropagation(); toggleSenshuManual('ao');
+  });
+
+  document.getElementById('aka-penalty-box').addEventListener('click', function(e){
+    if (e.target.closest('.penalty-minus')) return;
+    cyclePenalty('aka');
+  });
+  document.getElementById('ao-penalty-box').addEventListener('click', function(e){
+    if (e.target.closest('.penalty-minus')) return;
+    cyclePenalty('ao');
+  });
+  document.querySelectorAll('.penalty-minus').forEach(function(btn){
+    btn.addEventListener('click', function(ev){
+      ev.stopPropagation();
+      decPenalty(btn.dataset.side);
+    });
+  });
+
+  // timer
+  function tick(){
+    if (state.timer.remaining > 0) {
+      state.timer.remaining--;
+      if (state.timer.remaining <= 0) {
+        stopTimer();
+        beep();
+      }
+    }
+    render();
+  }
+  function startTimer(){
+    if (state.timer.running || state.timer.remaining <= 0) return;
+    state.timer.running = true;
+    document.getElementById('startstop-btn').textContent = '⏸';
+    state.timer.intervalId = setInterval(tick, 1000);
+  }
+  function stopTimer(){
+    state.timer.running = false;
+    document.getElementById('startstop-btn').textContent = '⏱';
+    if (state.timer.intervalId) { clearInterval(state.timer.intervalId); state.timer.intervalId = null; }
+  }
+  document.getElementById('startstop-btn').addEventListener('click', function(){
+    if (state.timer.running) stopTimer(); else startTimer();
+  });
+  document.getElementById('timer-display').addEventListener('click', function(){
+    if (!state.timer.running) {
+      state.timer.remaining = state.timer.duration;
+      render();
+    }
+  });
+
+  function beep(){
+    try {
+      var ctx = new (window.AudioContext || window.webkitAudioContext)();
+      var times = [0, 0.25, 0.5];
+      times.forEach(function(t){
+        var o = ctx.createOscillator();
+        var g = ctx.createGain();
+        o.frequency.value = 880;
+        o.connect(g); g.connect(ctx.destination);
+        g.gain.setValueAtTime(0.2, ctx.currentTime + t);
+        o.start(ctx.currentTime + t);
+        o.stop(ctx.currentTime + t + 0.18);
+      });
+    } catch(e) {}
+  }
+
+  // settings overlay
+  var settingsOverlay = document.getElementById('settings-overlay');
+  document.getElementById('settings-btn').addEventListener('click', function(){
+    document.getElementById('set-min').value = Math.floor(state.timer.duration/60);
+    document.getElementById('set-sec').value = state.timer.duration%60;
+    settingsOverlay.classList.add('show');
+  });
+  document.getElementById('settings-cancel').addEventListener('click', function(){
+    settingsOverlay.classList.remove('show');
+  });
+  document.querySelectorAll('.quick-presets button').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      var sec = parseInt(btn.dataset.sec, 10);
+      document.getElementById('set-min').value = Math.floor(sec/60);
+      document.getElementById('set-sec').value = sec%60;
+    });
+  });
+  document.getElementById('settings-apply').addEventListener('click', function(){
+    var m = parseInt(document.getElementById('set-min').value, 10) || 0;
+    var s = parseInt(document.getElementById('set-sec').value, 10) || 0;
+    var total = Math.max(0, m*60 + s);
+    stopTimer();
+    state.timer.duration = total;
+    state.timer.remaining = total;
+    saveSettings();
+    settingsOverlay.classList.remove('show');
+    render();
+  });
+
+  // reset all
+  var confirmOverlay = document.getElementById('confirm-overlay');
+  document.getElementById('reset-all-btn').addEventListener('click', function(){
+    confirmOverlay.classList.add('show');
+  });
+  document.getElementById('confirm-cancel').addEventListener('click', function(){
+    confirmOverlay.classList.remove('show');
+  });
+  document.getElementById('confirm-ok').addEventListener('click', function(){
+    stopTimer();
+    state.aka = { ippon:0, wazaari:0, yuko:0, penalty:0 };
+    state.ao  = { ippon:0, wazaari:0, yuko:0, penalty:0 };
+    state.senshu = null;
+    state.timer.remaining = state.timer.duration;
+    confirmOverlay.classList.remove('show');
+    render();
+  });
+
+  loadSettings();
+  render();
+})();
+</script>
+</body>
+</html>
