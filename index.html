@@ -48,204 +48,96 @@
     width: 100vw;
   }
 
-  .top-row {
-    display: flex;
-    flex: 1 1 auto;
-    min-height: 0;
+  /* 上下を逆さまにして見ても同じ構造に見えるよう、画面を上下対称に組んでいる:
+     上の帯と下の帯に同じ情報(一本/技あり/有効/先取/カテゴリー)を置き、下の帯は180度回転した向きで表示。
+     真ん中は左右に得点、中央にタイマー。どちら向きから見ても、文字が正立している帯が1本ある。 */
+  .strip {
+    display: flex; flex: 0 0 auto;
+    height: clamp(78px, 20vh, 170px); min-height: 0;
   }
-  /* ②画面の入れ替え/③２画面の反転: どちらか一方がONのとき左右を入れ替え、
-     両方ONのときは打ち消し合って元に戻る(render時にXORで判定) */
-  .app.layout-reversed .top-row { flex-direction: row-reverse; }
-  .app.layout-reversed .bottom-row { flex-direction: row-reverse; }
-  .side {
-    flex: 1;
-    display: flex;
+  .app.layout-reversed .strip,
+  .app.layout-reversed .board { flex-direction: row-reverse; }
+  .grp {
+    flex: 1; display: flex; min-width: 0; min-height: 0;
     border: 2px solid var(--panel-line-aka);
-    min-width: 0;
-    min-height: 0;
-    position: relative;
+  }
+  .grp.ao { border-color: var(--panel-line-ao); }
+  .grp.aka { background: linear-gradient(180deg, rgba(230,57,74,0.14), rgba(230,57,74,0.04)); }
+  .grp.ao  { background: linear-gradient(180deg, rgba(58,91,220,0.14), rgba(58,91,220,0.04)); }
+  .strip-bottom .grp { transform: rotate(180deg); }
+
+  .cell {
+    flex: 1 1 0; min-width: 0; min-height: 0;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    position: relative; overflow: hidden; cursor: pointer; padding: 2px;
+    border-right: 1px solid var(--panel-line-aka);
+  }
+  .grp.ao .cell { border-right-color: var(--panel-line-ao); }
+  .cell:last-child { border-right: none; }
+  .cell.pen { flex: 1.6 1 0; }
+  .cell-label { font-size: clamp(11px, 1.9vw, 20px); color: #ddd; line-height: 1.1; white-space: nowrap; }
+  .cell-num { font-size: 60px; font-weight: 800; color: var(--text-white); line-height: 1; white-space: nowrap; }
+  .cell-minus {
+    position: absolute; right: 2px; bottom: 2px;
+    background: #1a1a1a; color: #999; border: 1px solid #444;
+    border-radius: 4px; width: 20px; height: 20px; font-size: 13px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .cell.pen .cell-label { color: var(--yellow); }
+  .pen-text { font-size: 30px; font-weight: 800; color: #555; line-height: 1.05; text-align: center; white-space: nowrap; }
+  .pen-text.p1 { color: var(--yellow); }
+  .pen-text.p2 { color: var(--orange); text-shadow: 0 0 10px rgba(255,154,46,0.6); }
+  .pen-text.p3 { color: var(--aka); text-shadow: 0 0 12px rgba(230,57,74,0.7); }
+  .pen-text.p4 { color: #ff2020; text-shadow: 0 0 14px rgba(255,32,32,0.8); }
+  .pen-text.p5 { color: #ff2020; text-shadow: 0 0 18px rgba(255,32,32,1); animation: blink 0.8s infinite; }
+  @keyframes blink { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
+  .senshu-mark {
+    width: clamp(18px, 3.6vw, 34px); height: clamp(18px, 3.6vw, 34px);
+    border-radius: 50%; background: #2a2a2a; border: 2px solid #444; transition: all 0.25s;
+  }
+  .cell.senshu.lit-aka .senshu-mark { background: var(--aka); border-color: #ff8a95; box-shadow: 0 0 14px var(--aka); }
+  .cell.senshu.lit-ao .senshu-mark { background: var(--ao); border-color: #8aa0ff; box-shadow: 0 0 14px var(--ao); }
+
+  /* 真ん中: 左右に得点、中央にタイマー(どちらも中央寄せなので上下逆でも位置が変わらない) */
+  .board { display: flex; flex: 1 1 auto; min-height: 0; }
+  .side {
+    flex: 1; display: flex; min-width: 0; min-height: 0; position: relative;
+    border: 2px solid var(--panel-line-aka);
     transition: box-shadow 0.3s, opacity 0.3s;
   }
   .side.ao { border-color: var(--panel-line-ao); }
-  .side.winner { box-shadow: inset 0 0 40px 6px rgba(255,255,255,0.25); }
-  .side.loser { opacity: 0.55; }
-  /* サイド全体をうっすら色味で染めておくと、文字が読みにくい向き(180度回転時など)でも
-     どちらが赤/青かを文字を読まずに一目で判別できる */
   .side.aka { background: linear-gradient(180deg, rgba(230,57,74,0.12), rgba(230,57,74,0.03)); }
   .side.ao  { background: linear-gradient(180deg, rgba(58,91,220,0.12), rgba(58,91,220,0.03)); }
-
-  /* category (一本/技あり/有効) bars sit on the OUTER edge of each side */
-  .cats {
-    display: flex;
-    flex-direction: column;
-    width: 24%;
-    min-width: 70px;
-    min-height: 0;
-    order: 0;
-  }
-  .side.aka .cats { border-right: 2px solid var(--panel-line-aka); }
-  .side.ao .cats { border-left: 2px solid var(--panel-line-ao); order: 2; }
-  .side.ao .main-score-area { order: 1; }
-  /* ②/③で画面が反転しているときは、各サイド内部の並びも入れ替えて
-     カテゴリーバーが常に画面の外側に来るようにする */
-  .app.layout-reversed .side.aka .cats { order: 2; }
-  .app.layout-reversed .side.aka .main-score-area { order: 1; }
-  .app.layout-reversed .side.ao .cats { order: 0; }
-
-  .cat-item {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    border-bottom: 1px solid var(--panel-line-aka);
-    padding: 2px 0;
-    position: relative;
-    overflow: hidden;
-    min-height: 0;
-    min-width: 0;
-  }
-  .side.ao .cat-item { border-bottom-color: var(--panel-line-ao); }
-  .cat-item:last-child { border-bottom: none; }
-  .cat-label { font-size: clamp(14px, 2.8vw, 24px); color: #ddd; margin-bottom: 2px; }
-  .cat-num {
-    font-size: 90px;
-    font-weight: 800; color: var(--text-white); line-height: 1;
-    white-space: nowrap;
-  }
-  .cat-minus {
-    position: absolute; right: 2px; bottom: 2px;
-    background: #1a1a1a; color: #888; border: 1px solid #333;
-    border-radius: 4px; width: 20px; height: 20px; font-size: 13px;
-    display: flex; align-items: center; justify-content: center; cursor: pointer;
-  }
-
+  .side.winner { box-shadow: inset 0 0 40px 6px rgba(255,255,255,0.25); }
+  .side.loser { opacity: 0.55; }
   .main-score-area {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    position: relative;
-    min-width: 0;
-    cursor: pointer;
-    padding-top: clamp(32px, 7vh, 60px);
-    overflow: hidden;
-    min-height: 0;
-    min-width: 0;
+    flex: 1; display: flex; align-items: center; justify-content: center;
+    cursor: pointer; overflow: hidden; min-width: 0; min-height: 0;
   }
-  .senshu-dot {
-    position: absolute;
-    top: 10px;
-    width: clamp(24px, 5vw, 44px);
-    height: clamp(24px, 5vw, 44px);
-    border-radius: 50%;
-    background: #2a2a2a;
-    border: 2px solid #444;
-    transition: all 0.25s;
-  }
-  .side.aka .senshu-dot { right: 10px; }
-  .side.ao .senshu-dot { left: 10px; }
-  /* 反転時も先取ドットは常に中央寄りに来るよう左右を入れ替える */
-  .app.layout-reversed .side.aka .senshu-dot { right: auto; left: 10px; }
-  .app.layout-reversed .side.ao .senshu-dot { left: auto; right: 10px; }
-  .senshu-dot.lit-aka { background: var(--aka); border-color: #ff8a95; box-shadow: 0 0 14px var(--aka); }
-  .senshu-dot.lit-ao { background: var(--ao); border-color: #8aa0ff; box-shadow: 0 0 14px var(--ao); }
-
   .total-score {
-    font-size: 200px;
-    font-weight: 800;
-    line-height: 1;
-    color: var(--aka);
-    text-shadow: 0 0 18px rgba(230,57,74,0.55);
-    font-variant-numeric: tabular-nums;
-    letter-spacing: -2px;
-    white-space: nowrap;
+    font-size: 200px; font-weight: 800; line-height: 1;
+    color: var(--aka); text-shadow: 0 0 18px rgba(230,57,74,0.55);
+    font-variant-numeric: tabular-nums; letter-spacing: -2px; white-space: nowrap;
   }
   .side.ao .total-score { color: var(--ao); text-shadow: 0 0 18px rgba(58,91,220,0.6); }
 
-  .bottom-row {
-    display: flex;
-    flex: 0 0 auto;
-    height: 26vh;
-    min-height: 150px;
-    border-top: 1px solid #222;
-  }
-  .penalty-box {
-    flex: 0 0 22%;
-    min-width: 90px;
-    display: flex;
-    flex-direction: column;
-    border: 2px solid var(--yellow);
-    align-items: center;
-    justify-content: center;
-    position: relative;
-    cursor: pointer;
-    overflow: hidden;
-    min-width: 0;
-    min-height: 0;
-    padding: clamp(30px, 7vh, 50px) 8px clamp(26px, 5.5vh, 40px);
-  }
-  .penalty-label { font-size: clamp(14px, 2.8vw, 24px); color: var(--yellow); position: absolute; top: 6px; left: 8px; z-index: 1; }
-  .penalty-num {
-    font-size: 40px;
-    font-weight: 800; color: #555; line-height: 1.05;
-    text-align: center; overflow-wrap: break-word;
-  }
-  .penalty-minus {
-    position: absolute; right: 6px; bottom: 6px;
-    background: #1a1a1a; color: #999; border: 1px solid #444;
-    border-radius: 4px; width: 24px; height: 24px; font-size: 14px;
-    display: flex; align-items: center; justify-content: center;
-  }
-  .penalty-num.p1 { color: var(--yellow); }
-  .penalty-num.p2 { color: var(--orange); text-shadow: 0 0 10px rgba(255,154,46,0.6); }
-  .penalty-num.p3 { color: var(--aka); text-shadow: 0 0 12px rgba(230,57,74,0.7); }
-  .penalty-num.p4 { color: #ff2020; text-shadow: 0 0 14px rgba(255,32,32,0.8); }
-  .penalty-num.p5 { color: #ff2020; text-shadow: 0 0 18px rgba(255,32,32,1); animation: blink 0.8s infinite; }
-  @keyframes blink { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
-
-  .timer-area {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    min-width: 0;
-    min-height: 0;
-    position: relative;
-    overflow: hidden;
+  .timer-col {
+    flex: 0 0 30%; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-width: 0; min-height: 0; overflow: hidden; border-top: 1px solid #222; border-bottom: 1px solid #222;
   }
   .timer-display {
-    font-size: clamp(80px, 16vw, 190px);
-    font-weight: 800;
-    color: var(--aka);
+    font-size: 90px; font-weight: 800; color: var(--aka);
     text-shadow: 0 0 16px rgba(230,57,74,0.5);
-    font-variant-numeric: tabular-nums;
-    letter-spacing: -1px;
-    cursor: pointer;
+    font-variant-numeric: tabular-nums; letter-spacing: -1px; cursor: pointer; white-space: nowrap;
   }
   .timer-display.running { color: #3ddc5a; text-shadow: 0 0 16px rgba(61,220,90,0.5); }
   .timer-display.timeup { animation: blink 0.6s infinite; color: #ff2020; }
-
-  /* 残り時間の割合を示すバー: 数字(6と9など)が読みにくい向きでも、
-     量の多い少ないは文字を読まずに直感的に伝わる */
+  /* 残り時間バー: 数字が逆さまでも残量が直感的に分かる(左右対称な見た目) */
   .timer-bar-track {
-    width: min(70%, 320px);
-    height: clamp(8px, 1.6vh, 14px);
-    background: #1a1a1a;
-    border: 1px solid #333;
-    border-radius: 7px;
-    margin-top: clamp(8px, 1.6vh, 16px);
-    overflow: hidden;
-    flex: 0 0 auto;
+    width: 80%; height: clamp(8px, 1.6vh, 14px); background: #1a1a1a; border: 1px solid #333;
+    border-radius: 7px; margin-top: clamp(8px, 1.6vh, 16px); overflow: hidden; flex: 0 0 auto;
   }
-  .timer-bar-fill {
-    height: 100%;
-    width: 100%;
-    background: #3ddc5a;
-    transition: width 1s linear, background-color 0.3s;
-  }
+  .timer-bar-fill { height: 100%; width: 100%; background: #3ddc5a; transition: width 1s linear, background-color 0.3s; }
   .timer-bar-fill.low { background: #ff2020; }
 
   .footer-bar {
@@ -347,11 +239,12 @@
   }
 
   @media (max-width: 700px) {
-    .top-row { flex-direction: column; }
-    .side { border-width: 2px; }
-    .bottom-row { height: 32vh; }
-    .cats { width: 30%; }
-    .app.layout-reversed .top-row { flex-direction: column-reverse; }
+    .strip { height: clamp(96px, 24vh, 200px); }
+    .grp { flex-wrap: wrap; }
+    .cell { flex: 1 1 30%; border-bottom: 1px solid var(--panel-line-aka); }
+    .grp.ao .cell { border-bottom-color: var(--panel-line-ao); }
+    .cell.pen { flex: 1 1 60%; }
+    .timer-col { flex-basis: 34%; }
   }
 
   /* ボタンが5つになったので、1行に収まりきらない幅ではラップさせる */
@@ -373,78 +266,26 @@
   }
   .toggle-switch-btn.on { background: #2b6fe0; color: #fff; border-color: #2b6fe0; }
 
-  /* タブレット1台を物理的に180度回転させて使うためのモード */
-  .app.rotate-180 { transform: rotate(180deg); }
 </style>
 </head>
 <body>
 <div class="app" id="app">
-  <div class="top-row">
+  <div class="strip strip-top" id="strip-top"></div>
+
+  <div class="board">
     <div class="side aka" id="side-aka">
-      <div class="cats">
-        <div class="cat-item">
-          <div class="cat-label">一本</div>
-          <div class="cat-num" id="aka-ippon">0</div>
-          <div class="cat-minus" data-side="aka" data-cat="ippon">−</div>
-        </div>
-        <div class="cat-item">
-          <div class="cat-label">技あり</div>
-          <div class="cat-num" id="aka-wazaari">0</div>
-          <div class="cat-minus" data-side="aka" data-cat="wazaari">−</div>
-        </div>
-        <div class="cat-item">
-          <div class="cat-label">有効</div>
-          <div class="cat-num" id="aka-yuko">0</div>
-          <div class="cat-minus" data-side="aka" data-cat="yuko">−</div>
-        </div>
-      </div>
-      <div class="main-score-area" id="aka-score-area">
-        <div class="senshu-dot" id="aka-senshu"></div>
-        <div class="total-score" id="aka-total">0</div>
-      </div>
+      <div class="main-score-area" id="aka-score-area"><div class="total-score" id="aka-total">0</div></div>
     </div>
-
-    <div class="side ao" id="side-ao">
-      <div class="main-score-area" id="ao-score-area">
-        <div class="senshu-dot" id="ao-senshu"></div>
-        <div class="total-score" id="ao-total">0</div>
-      </div>
-      <div class="cats">
-        <div class="cat-item">
-          <div class="cat-label">一本</div>
-          <div class="cat-num" id="ao-ippon">0</div>
-          <div class="cat-minus" data-side="ao" data-cat="ippon">−</div>
-        </div>
-        <div class="cat-item">
-          <div class="cat-label">技あり</div>
-          <div class="cat-num" id="ao-wazaari">0</div>
-          <div class="cat-minus" data-side="ao" data-cat="wazaari">−</div>
-        </div>
-        <div class="cat-item">
-          <div class="cat-label">有効</div>
-          <div class="cat-num" id="ao-yuko">0</div>
-          <div class="cat-minus" data-side="ao" data-cat="yuko">−</div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <div class="bottom-row">
-    <div class="penalty-box" id="aka-penalty-box">
-      <div class="penalty-label">カテゴリー</div>
-      <div class="penalty-num" id="aka-penalty"></div>
-      <div class="penalty-minus" data-side="aka">−</div>
-    </div>
-    <div class="timer-area">
+    <div class="timer-col">
       <div class="timer-display" id="timer-display">1:30</div>
       <div class="timer-bar-track"><div class="timer-bar-fill" id="timer-bar-fill"></div></div>
     </div>
-    <div class="penalty-box" id="ao-penalty-box">
-      <div class="penalty-label">カテゴリー</div>
-      <div class="penalty-num" id="ao-penalty"></div>
-      <div class="penalty-minus" data-side="ao">−</div>
+    <div class="side ao" id="side-ao">
+      <div class="main-score-area" id="ao-score-area"><div class="total-score" id="ao-total">0</div></div>
     </div>
   </div>
+
+  <div class="strip strip-bottom" id="strip-bottom"></div>
 
   <div class="footer-bar">
     <button id="timer-minus1">−1秒</button>
@@ -480,23 +321,6 @@
         <div class="toggle-label">赤(アカ)・青(アオ)の表示を入れ替え</div>
       </div>
       <button class="toggle-switch-btn" id="toggle-swap-colors">OFF</button>
-    </div>
-
-    <h4>２画面の反転</h4>
-    <div class="toggle-row">
-      <div>
-        <div class="toggle-label">操作画面とモニター画面の左右を反転</div>
-      </div>
-      <button class="toggle-switch-btn" id="toggle-mirror-screens">OFF</button>
-    </div>
-
-    <h4>タブレット1台を反転して使う</h4>
-    <div class="toggle-row">
-      <div>
-        <div class="toggle-label">画面全体を180度回転</div>
-        <div class="toggle-desc">操作端末を物理的に180度回転させてモニター代わりに映す場合にON。ONのまま端末を180度回転させて持てば、操作側はいつも通りの向きで操作できます。</div>
-      </div>
-      <button class="toggle-switch-btn" id="toggle-rotate180">OFF</button>
     </div>
 
     <div class="panel-buttons">
@@ -545,9 +369,8 @@
     ao:  { ippon:0, wazaari:0, yuko:0, penalty:0 },
     senshu: null, // 'aka' | 'ao' | null
     timer: { duration: 90, remaining: 90, running: false, intervalId: null },
-    // ②画面の入れ替え(赤青の表示位置) / ③２画面の反転(操作画面⇔モニター画面)
-    // / rotate180: タブレット1台を物理的に180度回転させて使うためのモード
-    display: { swapColors: false, mirrorScreens: false, rotate180: false },
+    // 画面の入れ替え(赤青の表示位置)
+    display: { swapColors: false },
     resultShown: false // 試合終了時の勝敗表示を出しているか
   };
 
@@ -562,8 +385,6 @@
         }
         if (s) {
           state.display.swapColors = !!s.swapColors;
-          state.display.mirrorScreens = !!s.mirrorScreens;
-          state.display.rotate180 = !!s.rotate180;
         }
       }
     } catch(e) {}
@@ -572,20 +393,13 @@
     try {
       localStorage.setItem('karate-tokuten-settings', JSON.stringify({
         duration: state.timer.duration,
-        swapColors: state.display.swapColors,
-        mirrorScreens: state.display.mirrorScreens,
-        rotate180: state.display.rotate180
+        swapColors: state.display.swapColors
       }));
     } catch(e) {}
   }
 
-  // ②と③はどちらか一方だけONなら左右反転、両方ONなら打ち消し合って元の表示に戻る
-  // rotate180は独立した設定で、ON時は画面全体を180度回転表示する
   function applyDisplayLayout(){
-    var reversed = state.display.swapColors !== state.display.mirrorScreens;
-    var appEl = document.getElementById('app');
-    appEl.classList.toggle('layout-reversed', reversed);
-    appEl.classList.toggle('rotate-180', !!state.display.rotate180);
+    document.getElementById('app').classList.toggle('layout-reversed', !!state.display.swapColors);
   }
 
   function total(side){
@@ -621,55 +435,49 @@
   }
 
   function fitAllText(){
-    // 一本/技あり/有効 — single-line number, fills remaining height below the label
-    document.querySelectorAll('.cat-item').forEach(function(item){
-      var label = item.querySelector('.cat-label');
-      var num = item.querySelector('.cat-num');
-      var availW = item.clientWidth - 14;
-      var availH = item.clientHeight - label.offsetHeight - 10;
-      fitTextElement(num, availW, availH, 18, 300);
+    // 上下の帯: 一本/技あり/有効の数字
+    document.querySelectorAll('.cell.cat').forEach(function(cell){
+      var label = cell.querySelector('.cell-label');
+      var num = cell.querySelector('.cell-num');
+      fitTextElement(num, cell.clientWidth - 10, cell.clientHeight - label.offsetHeight - 10, 12, 200);
     });
-    // 得点合計 — single-line number, fills the score area (CSS padding-top already clears the senshu dot)
+    // 上下の帯: カテゴリー(注意/反則) — 折り返しあり
+    document.querySelectorAll('.cell.pen').forEach(function(cell){
+      var label = cell.querySelector('.cell-label');
+      var t = cell.querySelector('.pen-text');
+      fitTextElement(t, cell.clientWidth - 16, cell.clientHeight - label.offsetHeight - 10, 8, 80);
+    });
+    // 得点合計
     document.querySelectorAll('.main-score-area').forEach(function(area){
       var num = area.querySelector('.total-score');
-      var box = contentBoxSize(area, 16, 8);
-      fitTextElement(num, box.w, box.h, 50, 600);
+      fitTextElement(num, area.clientWidth - 16, area.clientHeight - 8, 50, 600);
     });
-    // カテゴリー(注意/反則) — allowed to wrap across lines, fills the box below/around the label
-    document.querySelectorAll('.penalty-box').forEach(function(box){
-      var num = box.querySelector('.penalty-num');
-      var size = contentBoxSize(box, 8, 4);
-      num.style.width = size.w + 'px';
-      fitTextElement(num, size.w, size.h, 14, 260);
-    });
-    // タイマー — 下の残り時間バー分の高さを差し引いてからフィットさせる
-    // (バーがタイマー表示と重なったりはみ出て見えなくなったりしないように)
-    var timerArea = document.querySelector('.timer-area');
+    // タイマー — 下の残り時間バー分の高さを差し引いてからフィット
+    var col = document.querySelector('.timer-col');
     var timerDisp = document.getElementById('timer-display');
     var barTrack = document.querySelector('.timer-bar-track');
-    if (timerArea && timerDisp) {
-      var tBox = contentBoxSize(timerArea, 16, 0);
-      var barCs = barTrack ? getComputedStyle(barTrack) : null;
-      var barH = barTrack ? (barTrack.offsetHeight + (parseFloat(barCs.marginTop) || 0)) : 0;
-      fitTextElement(timerDisp, tBox.w, tBox.h - barH - 4, 40, 400);
+    if (col && timerDisp) {
+      var barH = barTrack ? (barTrack.offsetHeight + (parseFloat(getComputedStyle(barTrack).marginTop) || 0)) : 0;
+      fitTextElement(timerDisp, col.clientWidth - 16, col.clientHeight - barH - 8, 30, 400);
     }
   }
 
   function render(){
     ['aka','ao'].forEach(function(side){
       var s = state[side];
-      document.getElementById(side+'-ippon').textContent = s.ippon;
-      document.getElementById(side+'-wazaari').textContent = s.wazaari;
-      document.getElementById(side+'-yuko').textContent = s.yuko;
+      ['ippon','wazaari','yuko'].forEach(function(cat){
+        document.querySelectorAll('.cell.cat[data-side="'+side+'"][data-cat="'+cat+'"] .cell-num').forEach(function(el){
+          el.textContent = s[cat];
+        });
+      });
       document.getElementById(side+'-total').textContent = total(side);
-
-      var pEl = document.getElementById(side+'-penalty');
-      pEl.textContent = PENALTY_LABELS[s.penalty] || '';
-      pEl.className = 'penalty-num' + (s.penalty > 0 ? ' p'+s.penalty : '');
-
-      var dot = document.getElementById(side+'-senshu');
-      dot.classList.remove('lit-aka','lit-ao');
-      if (state.senshu === side) dot.classList.add('lit-'+side);
+      document.querySelectorAll('.cell.pen[data-side="'+side+'"] .pen-text').forEach(function(el){
+        el.textContent = PENALTY_LABELS[s.penalty] || '';
+        el.className = 'pen-text' + (s.penalty > 0 ? ' p'+s.penalty : '');
+      });
+      document.querySelectorAll('.cell.senshu[data-side="'+side+'"]').forEach(function(el){
+        el.classList.toggle('lit-'+side, state.senshu === side);
+      });
     });
 
     // timer
@@ -796,59 +604,42 @@
     render();
   }
 
-  // wire up score taps
-  document.getElementById('aka-score-area').addEventListener('click', function(e){
-    if (e.target.closest('.senshu-dot')) return;
-    playTapSound();
-    incCat('aka','yuko');
-  });
-  document.getElementById('ao-score-area').addEventListener('click', function(e){
-    if (e.target.closest('.senshu-dot')) return;
-    playTapSound();
-    incCat('ao','yuko');
+  // 上下の帯(同じ内容の2本)を作る。下の帯は各グループが180度回転して表示される
+  var CATS = [['ippon','一本'],['wazaari','技あり'],['yuko','有効']];
+  function buildGroup(side){
+    var h = '<div class="grp '+side+'">';
+    CATS.forEach(function(c){
+      h += '<div class="cell cat" data-side="'+side+'" data-cat="'+c[0]+'">' +
+           '<div class="cell-label">'+c[1]+'</div><div class="cell-num">0</div><div class="cell-minus">−</div></div>';
+    });
+    h += '<div class="cell senshu" data-side="'+side+'"><div class="cell-label">先取</div><div class="senshu-mark"></div></div>';
+    h += '<div class="cell pen" data-side="'+side+'"><div class="cell-label">カテゴリー</div><div class="pen-text"></div><div class="cell-minus">−</div></div>';
+    return h + '</div>';
+  }
+  ['strip-top','strip-bottom'].forEach(function(id){
+    var el = document.getElementById(id);
+    el.innerHTML = buildGroup('aka') + buildGroup('ao');
+    el.addEventListener('click', function(e){
+      var cell = e.target.closest('.cell');
+      if (!cell) return;
+      var side = cell.dataset.side;
+      var isMinus = !!e.target.closest('.cell-minus');
+      playTapSound();
+      if (cell.classList.contains('cat')) {
+        if (isMinus) decCat(side, cell.dataset.cat); else incCat(side, cell.dataset.cat);
+      } else if (cell.classList.contains('senshu')) {
+        toggleSenshuManual(side);
+      } else if (cell.classList.contains('pen')) {
+        if (isMinus) decPenalty(side); else cyclePenalty(side);
+      }
+    });
   });
 
-  // tapping individual category number increments that category directly
+  // 得点の大きい数字をタップすると有効(1点)
   ['aka','ao'].forEach(function(side){
-    ['ippon','wazaari','yuko'].forEach(function(cat){
-      document.getElementById(side+'-'+cat).addEventListener('click', function(ev){
-        ev.stopPropagation();
-        playTapSound();
-        incCat(side, cat);
-      });
-    });
-  });
-
-  document.querySelectorAll('.cat-minus').forEach(function(btn){
-    btn.addEventListener('click', function(ev){
-      ev.stopPropagation();
+    document.getElementById(side+'-score-area').addEventListener('click', function(){
       playTapSound();
-      decCat(btn.dataset.side, btn.dataset.cat);
-    });
-  });
-
-  document.getElementById('aka-senshu').addEventListener('click', function(ev){
-    ev.stopPropagation(); playTapSound(); toggleSenshuManual('aka');
-  });
-  document.getElementById('ao-senshu').addEventListener('click', function(ev){
-    ev.stopPropagation(); playTapSound(); toggleSenshuManual('ao');
-  });
-
-  document.getElementById('aka-penalty-box').addEventListener('click', function(e){
-    if (e.target.closest('.penalty-minus')) return;
-    playTapSound();
-    cyclePenalty('aka');
-  });
-  document.getElementById('ao-penalty-box').addEventListener('click', function(e){
-    if (e.target.closest('.penalty-minus')) return;
-    playTapSound();
-    cyclePenalty('ao');
-  });
-  document.querySelectorAll('.penalty-minus').forEach(function(btn){
-    btn.addEventListener('click', function(ev){
-      ev.stopPropagation();
-      playTapSound();
-      decPenalty(btn.dataset.side);
+      incCat(side,'yuko');
     });
   });
 
@@ -1006,15 +797,9 @@
 
   // 設定: ②画面の入れ替え/③２画面の反転 トグルボタンの表示を現在の状態に合わせる
   var swapColorsBtn = document.getElementById('toggle-swap-colors');
-  var mirrorScreensBtn = document.getElementById('toggle-mirror-screens');
-  var rotate180Btn = document.getElementById('toggle-rotate180');
   function updateDisplayToggleButtons(){
     swapColorsBtn.textContent = state.display.swapColors ? 'ON' : 'OFF';
     swapColorsBtn.classList.toggle('on', state.display.swapColors);
-    mirrorScreensBtn.textContent = state.display.mirrorScreens ? 'ON' : 'OFF';
-    mirrorScreensBtn.classList.toggle('on', state.display.mirrorScreens);
-    rotate180Btn.textContent = state.display.rotate180 ? 'ON' : 'OFF';
-    rotate180Btn.classList.toggle('on', state.display.rotate180);
   }
   swapColorsBtn.addEventListener('click', function(){
     playTapSound();
@@ -1023,21 +808,6 @@
     applyDisplayLayout();
     saveSettings();
   });
-  mirrorScreensBtn.addEventListener('click', function(){
-    playTapSound();
-    state.display.mirrorScreens = !state.display.mirrorScreens;
-    updateDisplayToggleButtons();
-    applyDisplayLayout();
-    saveSettings();
-  });
-  rotate180Btn.addEventListener('click', function(){
-    playTapSound();
-    state.display.rotate180 = !state.display.rotate180;
-    updateDisplayToggleButtons();
-    applyDisplayLayout();
-    saveSettings();
-  });
-
   // settings overlay
   var settingsOverlay = document.getElementById('settings-overlay');
   document.getElementById('settings-btn').addEventListener('click', function(){
