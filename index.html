@@ -347,11 +347,32 @@
     flex: 0 0 auto; min-width: 64px; padding: 8px 14px; border-radius: 20px;
     border: 1px solid #444; background: #2a2a2a; color: #ccc; font-size: 13px; cursor: pointer;
   }
+  .toggle-notice { display:none; margin:-6px 0 14px; padding:8px 10px; border-radius:8px; background:#2a2410; border:1px solid #6b5420; color:#ffd27a; font-size:12px; line-height:1.5; text-align:left; }
+  .toggle-notice.show { display:block; }
+
+  /* 反転モード: 画面上部に180度回転したミニ得点板(向かい側から見る用)。内側(中央)から 得点→有効→技あり→一本→カテゴリー */
+  .mini-strip { display:none; flex:0 0 auto; height:clamp(58px, 10vh, 100px); background:#080808; border-bottom:1px solid #222; transform:rotate(180deg); opacity:.88; }
+  .app.flip-mode .mini-strip { display:flex; }
+  .mini-grp { flex:1; display:flex; min-width:0; border:1px solid; }
+  .mini-grp.aka { border-color:rgba(230,57,74,.55); background:rgba(230,57,74,.07); }
+  .mini-grp.ao { border-color:rgba(58,91,220,.55); background:rgba(58,91,220,.07); }
+  .mini-cell { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; border-left:1px solid rgba(255,255,255,.08); min-width:0; }
+  .mini-cell:first-child { border-left:none; }
+  .mini-label { font-size:clamp(8px,1.1vw,12px); color:#999; line-height:1; white-space:nowrap; }
+  .mini-num { font-size:clamp(18px,3.2vw,34px); font-weight:700; color:#ccc; line-height:1.05; }
+  .mini-score { flex:1.25; display:flex; align-items:center; justify-content:center; font-size:clamp(30px,6vw,64px); font-weight:800; line-height:1; }
+  .mini-grp.aka .mini-score { color:var(--aka); } .mini-grp.ao .mini-score { color:var(--ao); }
+  .mini-pen { flex:1.15; }
+  .mini-pen .mini-label { color:#a89a40; }
+  .mini-pen .mini-num { font-size:clamp(11px,1.8vw,20px); color:var(--yellow); }
+  .mini-timer { flex:0 0 16%; display:flex; align-items:center; justify-content:center; font-size:clamp(22px,4.2vw,46px); font-weight:700; color:#a8323e; }
+  .mini-timer.running { color:#2f9e47; } .mini-timer.timeup { color:#ff2020; }
   .toggle-switch-btn.on { background: #2b6fe0; color: #fff; border-color: #2b6fe0; }
 </style>
 </head>
 <body>
 <div class="app" id="app">
+  <div class="mini-strip" id="mini-strip" aria-hidden="true"></div>
   <div class="top-row">
     <div class="side aka" id="side-aka">
       <div class="cats">
@@ -454,6 +475,16 @@
       <button class="toggle-switch-btn" id="toggle-swap-colors">OFF</button>
     </div>
 
+    <h4>反転モード</h4>
+    <div class="toggle-row">
+      <div>
+        <div class="toggle-label">画面上部にミニ得点板を表示</div>
+        <div class="toggle-desc">OFFのときは通常モード</div>
+      </div>
+      <button class="toggle-switch-btn" id="toggle-flip-mode">OFF</button>
+    </div>
+    <div class="toggle-notice" id="flip-notice">画面の上部にミニ得点板が表示されます。タブレットを上下反対に持って使用してください。<br>※画面の向きを🗝️マークを押して固定してください。</div>
+
     <div class="panel-buttons">
       <button class="btn-secondary" id="settings-cancel">キャンセル</button>
       <button class="btn-primary" id="settings-apply">セット</button>
@@ -501,7 +532,7 @@
     senshu: null, // 'aka' | 'ao' | null
     timer: { duration: 90, remaining: 90, running: false, intervalId: null },
     // 画面の入れ替え(赤青の表示位置)
-    display: { swapColors: false },
+    display: { swapColors: false, flipMode: false },
     resultShown: false // 試合終了時の勝敗表示を出しているか
   };
 
@@ -516,6 +547,7 @@
         }
         if (s) {
           state.display.swapColors = !!s.swapColors;
+          state.display.flipMode = !!s.flipMode;
         }
       }
     } catch(e) {}
@@ -524,14 +556,61 @@
     try {
       localStorage.setItem('karate-tokuten-settings', JSON.stringify({
         duration: state.timer.duration,
-        swapColors: state.display.swapColors
+        swapColors: state.display.swapColors,
+        flipMode: state.display.flipMode
       }));
     } catch(e) {}
   }
 
   // ②と③はどちらか一方だけONなら左右反転、両方ONなら打ち消し合って元の表示に戻る
   function applyDisplayLayout(){
-    document.getElementById('app').classList.toggle('layout-reversed', !!state.display.swapColors);
+    var appEl = document.getElementById('app');
+    appEl.classList.toggle('layout-reversed', !!state.display.swapColors);
+    appEl.classList.toggle('flip-mode', !!state.display.flipMode);
+    buildMiniStrip();
+    fitAllText();
+  }
+
+  // ミニ得点板(反転モード用)。左右の並びは、本画面の赤青の入れ替え設定に合わせて決める
+  var MINI_CATS = [['yuko','有効'],['wazaari','技あり'],['ippon','一本']];
+  function miniGroup(side, innerOnRight){
+    var cells = '<div class="mini-score" data-m="total" data-side="'+side+'">0</div>';
+    MINI_CATS.forEach(function(c){
+      cells += '<div class="mini-cell"><div class="mini-label">'+c[1]+'</div><div class="mini-num" data-m="'+c[0]+'" data-side="'+side+'">0</div></div>';
+    });
+    cells += '<div class="mini-cell mini-pen"><div class="mini-label">カテゴリー</div><div class="mini-num" data-m="pen" data-side="'+side+'"></div></div>';
+    // 内側(中央)から 得点→有効→技あり→一本→カテゴリー。左側のグループは内側が右端になるので逆順に並べる
+    var parts = cells.split(/(?=<div class="mini-(?:score|cell))/);
+    if (innerOnRight) parts.reverse();
+    return '<div class="mini-grp '+side+'">'+parts.join('')+'</div>';
+  }
+  function buildMiniStrip(){
+    // 回転表示なので、DOM上の左側は向かい側から見ると右側になる
+    var leftSide = state.display.swapColors ? 'aka' : 'ao';
+    var rightSide = leftSide === 'aka' ? 'ao' : 'aka';
+    document.getElementById('mini-strip').innerHTML =
+      miniGroup(leftSide, true) + '<div class="mini-timer" id="mini-timer">0:00</div>' + miniGroup(rightSide, false);
+    updateMiniStrip();
+  }
+  function updateMiniStrip(){
+    var strip = document.getElementById('mini-strip');
+    if (!strip) return;
+    ['aka','ao'].forEach(function(side){
+      var s = state[side];
+      strip.querySelectorAll('[data-side="'+side+'"]').forEach(function(el){
+        var k = el.dataset.m;
+        if (k === 'total') el.textContent = total(side);
+        else if (k === 'pen') el.textContent = PENALTY_LABELS[s.penalty] || '';
+        else el.textContent = s[k];
+      });
+    });
+    var mt = document.getElementById('mini-timer');
+    if (mt) {
+      var t = state.timer.remaining;
+      mt.textContent = Math.floor(t/60) + ':' + (t%60<10?'0':'') + (t%60);
+      mt.classList.toggle('running', state.timer.running);
+      mt.classList.toggle('timeup', t<=0);
+    }
   }
 
   function total(side){
@@ -630,6 +709,7 @@
     }
     renderResultOverlay(matchEnded);
 
+    updateMiniStrip();
     fitAllText();
   }
 
@@ -935,9 +1015,13 @@
 
   // 設定: ②画面の入れ替え/③２画面の反転 トグルボタンの表示を現在の状態に合わせる
   var swapColorsBtn = document.getElementById('toggle-swap-colors');
+  var flipModeBtn = document.getElementById('toggle-flip-mode');
   function updateDisplayToggleButtons(){
     swapColorsBtn.textContent = state.display.swapColors ? 'ON' : 'OFF';
     swapColorsBtn.classList.toggle('on', state.display.swapColors);
+    flipModeBtn.textContent = state.display.flipMode ? 'ON' : 'OFF';
+    flipModeBtn.classList.toggle('on', state.display.flipMode);
+    document.getElementById('flip-notice').classList.toggle('show', state.display.flipMode);
   }
   swapColorsBtn.addEventListener('click', function(){
     playTapSound();
@@ -946,6 +1030,14 @@
     applyDisplayLayout();
     saveSettings();
   });
+  flipModeBtn.addEventListener('click', function(){
+    playTapSound();
+    state.display.flipMode = !state.display.flipMode;
+    updateDisplayToggleButtons();
+    applyDisplayLayout();
+    saveSettings();
+  });
+
   // settings overlay
   var settingsOverlay = document.getElementById('settings-overlay');
   document.getElementById('settings-btn').addEventListener('click', function(){
