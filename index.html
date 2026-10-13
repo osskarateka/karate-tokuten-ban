@@ -158,8 +158,9 @@
     overflow: hidden;
     min-width: 0;
     min-height: 0;
+    padding: clamp(30px, 7vh, 50px) 8px clamp(26px, 5.5vh, 40px);
   }
-  .penalty-label { font-size: clamp(14px, 2.8vw, 24px); color: var(--yellow); position: absolute; top: 6px; left: 8px; }
+  .penalty-label { font-size: clamp(14px, 2.8vw, 24px); color: var(--yellow); position: absolute; top: 6px; left: 8px; z-index: 1; }
   .penalty-num {
     font-size: 40px;
     font-weight: 800; color: #555; line-height: 1.05;
@@ -419,6 +420,18 @@
     el.style.fontSize = best + 'px';
   }
 
+  // the content-box area available inside el (clientWidth/Height minus its own CSS padding),
+  // so fitted text never overlaps padding reserved for labels/buttons
+  function contentBoxSize(el, extraW, extraH){
+    var cs = getComputedStyle(el);
+    var padL = parseFloat(cs.paddingLeft) || 0, padR = parseFloat(cs.paddingRight) || 0;
+    var padT = parseFloat(cs.paddingTop) || 0, padB = parseFloat(cs.paddingBottom) || 0;
+    return {
+      w: el.clientWidth - padL - padR - (extraW || 0),
+      h: el.clientHeight - padT - padB - (extraH || 0)
+    };
+  }
+
   function fitAllText(){
     // 一本/技あり/有効 — single-line number, fills remaining height below the label
     document.querySelectorAll('.cat-item').forEach(function(item){
@@ -428,20 +441,18 @@
       var availH = item.clientHeight - label.offsetHeight - 10;
       fitTextElement(num, availW, availH, 18, 300);
     });
-    // 得点合計 — single-line number, fills the score area (minus space reserved for the senshu dot)
+    // 得点合計 — single-line number, fills the score area (CSS padding-top already clears the senshu dot)
     document.querySelectorAll('.main-score-area').forEach(function(area){
       var num = area.querySelector('.total-score');
-      var availW = area.clientWidth - 24;
-      var availH = area.clientHeight - 20;
-      fitTextElement(num, availW, availH, 50, 600);
+      var box = contentBoxSize(area, 16, 8);
+      fitTextElement(num, box.w, box.h, 50, 600);
     });
-    // カテゴリー(注意/反則) — allowed to wrap across lines, fills the whole box
+    // カテゴリー(注意/反則) — allowed to wrap across lines, fills the box below/around the label
     document.querySelectorAll('.penalty-box').forEach(function(box){
       var num = box.querySelector('.penalty-num');
-      var availW = box.clientWidth - 16;
-      var availH = box.clientHeight - 16;
-      num.style.width = availW + 'px';
-      fitTextElement(num, availW, availH, 14, 260);
+      var size = contentBoxSize(box, 8, 4);
+      num.style.width = size.w + 'px';
+      fitTextElement(num, size.w, size.h, 14, 260);
     });
   }
 
