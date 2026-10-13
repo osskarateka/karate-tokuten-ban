@@ -245,6 +245,13 @@
   .footer-bar #reset-all-btn { color: #ff8a8a; border-color: #7a1522; }
   .footer-bar #undo-btn { color: #ffd27a; border-color: #6b5420; }
 
+  /* 右下の小さなクレジット表示(操作の邪魔にならないようクリックは透過) */
+  .credit {
+    position: fixed; right: 6px; bottom: 2px;
+    font-size: 10px; color: rgba(255,255,255,0.22);
+    pointer-events: none; user-select: none; z-index: 5;
+  }
+
   .overlay {
     position: fixed; inset: 0; background: rgba(0,0,0,0.75);
     display: none; align-items: center; justify-content: center; z-index: 10;
@@ -418,6 +425,8 @@
     <button id="undo-btn">一つ前に戻す</button>
     <button id="reset-all-btn">試合をリセット</button>
   </div>
+
+  <div class="credit" aria-hidden="true">©yamane1229</div>
 </div>
 
 <div class="overlay" id="settings-overlay">
