@@ -45,7 +45,10 @@
     display: flex;
     flex-direction: column;
     height: 100vh;
+    height: 100dvh;   /* iPhoneのSafariでアドレスバーに隠れないよう、実際に見えている高さに合わせる */
     width: 100vw;
+    /* ノッチ・ホームバーに被らないよう安全領域ぶん内側に寄せる */
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
   }
 
   .top-row {
@@ -260,6 +263,7 @@
   .panel {
     background: #141414; border: 1px solid #333; border-radius: 12px;
     padding: 20px; width: min(340px, 90vw);
+    max-height: 94vh; max-height: 94dvh; overflow-y: auto;   /* 低い画面でも「セット」まで届くようスクロール可 */
   }
   .panel h3 { margin: 0 0 14px; font-size: 16px; color: #eee; text-align: center; }
   .panel h4 { margin: 0 0 10px; font-size: 13px; color: #999; font-weight: 600; }
@@ -322,7 +326,7 @@
     50% { transform: rotate(6deg); }
   }
 
-  @media (max-width: 700px) {
+  @media (max-width: 700px) and (orientation: portrait) {
     .top-row { flex-direction: column; }
     .side { border-width: 2px; }
     .bottom-row { height: 32vh; }
@@ -334,6 +338,22 @@
   @media (max-width: 900px) {
     .footer-bar { flex-wrap: wrap; gap: 8px; }
     .footer-bar button { flex: 1 1 28%; max-width: none; }
+  }
+
+  /* iPhoneの横向きなど高さが低い画面: 同じレイアウトのまま、各部の余白と最小サイズを詰める */
+  @media (max-height: 520px) {
+    .bottom-row { height: 24vh; height: 24dvh; min-height: 84px; }
+    .penalty-box { padding: 22px 6px 6px; }
+    .penalty-label { font-size: 11px; top: 3px; left: 5px; }
+    .cat-label { font-size: 11px; margin-bottom: 0; }
+    .cat-minus { width: 16px; height: 16px; font-size: 11px; }
+    .penalty-minus { width: 18px; height: 18px; font-size: 11px; }
+    .main-score-area { padding-top: 6px; }
+    .senshu-dot { top: 5px; width: 20px; height: 20px; }
+    .footer-bar { flex-wrap: nowrap; gap: 6px; padding: 4px 8px; }
+    .footer-bar button { flex: 1; max-width: none; padding: 6px 4px; font-size: 12px; border-radius: 8px; }
+    .mini-strip { height: clamp(40px, 11vh, 60px); }
+    .credit { display: none; }
   }
 
   .toggle-row {
@@ -667,6 +687,10 @@
       num.style.width = size.w + 'px';
       fitTextElement(num, size.w, size.h, 14, 260);
     });
+    // タイマー — 枠の高さ・幅に収まる最大の大きさに自動調整(低い画面でも切れない)
+    var tArea = document.querySelector('.timer-area');
+    var tDisp = document.getElementById('timer-display');
+    if (tArea && tDisp) fitTextElement(tDisp, tArea.clientWidth - 16, tArea.clientHeight - 6, 30, 400);
   }
 
   function render(){
@@ -1103,6 +1127,7 @@
     clearTimeout(resizeTimer);
     resizeTimer = setTimeout(fitAllText, 100);
   });
+  window.addEventListener('orientationchange', function(){ setTimeout(fitAllText, 300); });
 
   loadSettings();
   applyDisplayLayout();
