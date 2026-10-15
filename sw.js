@@ -1,6 +1,6 @@
 // 空手 得点板 - オフラインでも起動できるようにする簡易キャッシュ(Service Worker)
 // バージョンを上げると古いキャッシュが破棄され、最新のindex.htmlに切り替わる
-var CACHE_NAME = 'karate-tokuten-ban-v3';
+var CACHE_NAME = 'karate-tokuten-ban-v4';
 var ASSETS = [
   './',
   './index.html',

@@ -224,6 +224,7 @@
     letter-spacing: -1px;
     cursor: pointer;
   }
+  .timer-area { cursor:pointer; touch-action:manipulation; -webkit-tap-highlight-color:transparent; }
   .timer-display.running { color: #3ddc5a; text-shadow: 0 0 16px rgba(61,220,90,0.5); }
   .timer-display.timeup { animation: blink 0.6s infinite; color: #ff2020; }
 
@@ -432,7 +433,7 @@
   .mini-pen { flex:1.15; }
   .mini-pen .mini-label { color:#a89a40; }
   .mini-pen .mini-num { font-size:clamp(11px,1.8vw,20px); color:var(--yellow); }
-  .mini-timer { flex:0 0 16%; display:flex; align-items:center; justify-content:center; font-size:clamp(22px,4.2vw,46px); font-weight:700; color:#a8323e; }
+  .mini-timer { cursor:pointer; touch-action:manipulation; flex:0 0 16%; display:flex; align-items:center; justify-content:center; font-size:clamp(22px,4.2vw,46px); font-weight:700; color:#a8323e; }
   .mini-timer.running { color:#2f9e47; } .mini-timer.timeup { color:#ff2020; }
   .toggle-switch-btn.on { background: #2b6fe0; color: #fff; border-color: #2b6fe0; }
 </style>
@@ -1047,9 +1048,17 @@
   }
 
   // pressing the displayed time itself starts/stops the timer
-  document.getElementById('timer-display').addEventListener('click', function(){
+  function toggleTimer(){
     playTapSound();
     if (state.timer.running) stopTimer(); else startTimer();
+  }
+  // タイマー領域のどこを押しても開始/停止(+1/-1ボタンは除く)
+  document.querySelector('.timer-area').addEventListener('click', function(e){
+    if (e.target.closest('button')) return;
+    toggleTimer();
+  });
+  document.addEventListener('click', function(e){
+    if (e.target.closest && e.target.closest('#mini-timer')) toggleTimer();
   });
   document.getElementById('timer-minus1').addEventListener('click', function(){ playTapSound(); adjustTime(-1); });
   document.getElementById('timer-plus1').addEventListener('click', function(){ playTapSound(); adjustTime(1); });
