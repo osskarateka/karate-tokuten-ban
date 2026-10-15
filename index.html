@@ -367,6 +367,52 @@
     flex: 0 0 auto; min-width: 64px; padding: 8px 14px; border-radius: 20px;
     border: 1px solid #444; background: #2a2a2a; color: #ccc; font-size: 13px; cursor: pointer;
   }
+  /* ===== 形(かた)モード ===== */
+  .kata-view { display:none; flex:1 1 auto; min-height:0; flex-direction:column; }
+  .app.mode-kata .kata-view { display:flex; }
+  .app.mode-kata .top-row, .app.mode-kata .bottom-row, .app.mode-kata .footer-bar,
+  .app.mode-kata .mini-strip, .app.mode-kata .credit { display:none !important; }
+  .kata-head { flex:0 0 auto; display:flex; align-items:center; justify-content:space-between; gap:12px; padding:8px 16px; border-bottom:1px solid #222; }
+  .kata-name { font-size:clamp(20px,4.5vh,40px); font-weight:800; color:#fff; cursor:pointer; padding:2px 10px; border-radius:8px; border:1px dashed #444; max-width:70%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .kata-title { font-size:clamp(14px,3vh,24px); color:var(--yellow); font-weight:700; }
+  .kata-judges { flex:1 1 38%; min-height:0; display:flex; padding:4px 6px; }
+  .kj { flex:1; min-width:0; margin:4px; border:2px solid #555; border-radius:12px; display:flex; flex-direction:column; align-items:center; justify-content:center; cursor:pointer; background:#0d0d0d; overflow:hidden; }
+  .kj-label { font-size:clamp(11px,2.2vh,20px); color:#bbb; }
+  .kj-score { font-size:80px; font-weight:800; color:#fff; line-height:1; font-variant-numeric:tabular-nums; white-space:nowrap; }
+  .kj.empty .kj-score { color:#444; }
+  .kj-tag { font-size:clamp(10px,2vh,18px); color:#888; min-height:1.2em; }
+  .kj.excluded { border-color:#333; background:#080808; }
+  .kj.excluded .kj-score { color:#666; text-decoration:line-through; }
+  .kj.excluded .kj-tag { color:#ff9a2e; }
+  .kata-total { flex:1 1 38%; min-height:0; display:flex; flex-direction:column; align-items:center; justify-content:center; border-top:1px solid #222; }
+  .kata-total-label { font-size:clamp(12px,2.6vh,22px); color:#bbb; }
+  .kata-total-num { font-size:160px; font-weight:800; color:var(--yellow); text-shadow:0 0 18px rgba(242,212,58,.45); line-height:1; font-variant-numeric:tabular-nums; white-space:nowrap; }
+  .kata-total-num.pending { color:#444; text-shadow:none; }
+  .kfooter { flex:0 0 auto; display:flex; gap:2vw; justify-content:center; padding:10px 12px; background:#0a0a0a; border-top:1px solid #222; }
+  .kfooter button { flex:1; max-width:240px; background:#1a1a1a; color:#ddd; border:1px solid #444; border-radius:10px; padding:clamp(8px,2vh,18px) 8px; font-size:clamp(12px,2.4vw,22px); font-weight:700; cursor:pointer; }
+  .kfooter #kata-next { color:#9fe3a8; border-color:#2f6b3a; }
+  .kfooter #kata-undo { color:#ffd27a; border-color:#6b5420; }
+  .kpad-display { text-align:center; font-size:44px; font-weight:800; color:var(--yellow); min-height:56px; margin-bottom:6px; font-variant-numeric:tabular-nums; }
+  .kpad-hint { font-size:11px; color:#888; text-align:center; margin-bottom:10px; }
+  .kpad-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; }
+  .kpad-grid button { padding:12px 0; font-size:22px; font-weight:700; border-radius:10px; border:1px solid #444; background:#222; color:#fff; cursor:pointer; }
+  .kpad-grid button.sub { font-size:14px; background:#1a1a1a; color:#ccc; }
+  .kpad-grid button.ok { background:#2b6fe0; border-color:#2b6fe0; }
+  .kpad-err { color:#ff8a8a; font-size:12px; text-align:center; min-height:1.3em; }
+  .panel input.kname-input { width:100%; font-size:20px; text-align:left; padding:10px; }
+  .rank-list { max-height:52vh; overflow-y:auto; margin-bottom:10px; }
+  .rank-row { display:flex; align-items:center; gap:10px; padding:8px 4px; border-bottom:1px solid #2a2a2a; font-size:16px; }
+  .rank-row .rk { flex:0 0 2.2em; color:var(--yellow); font-weight:800; }
+  .rank-row .nm { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .rank-row .sc { font-weight:800; font-variant-numeric:tabular-nums; }
+  .rank-empty { color:#888; text-align:center; padding:14px 0; font-size:14px; }
+  @media (max-height: 520px) {
+    .kata-head { padding:3px 10px; } .kj { margin:2px; } .kj-tag { display:none; }
+    .kfooter { padding:4px 8px; gap:6px; } .kfooter button { padding:6px 4px; font-size:12px; }
+  }
+  .seg { display:flex; gap:8px; margin-bottom:14px; }
+  .seg button { flex:1; padding:10px; border-radius:8px; border:1px solid #444; background:#2a2a2a; color:#ccc; font-size:15px; cursor:pointer; }
+  .seg button.on { background:#2b6fe0; border-color:#2b6fe0; color:#fff; }
   .toggle-notice { display:none; margin:-6px 0 14px; padding:8px 10px; border-radius:8px; background:#2a2410; border:1px solid #6b5420; color:#ffd27a; font-size:12px; line-height:1.5; text-align:left; }
   .toggle-notice.show { display:block; }
 
@@ -467,6 +513,21 @@
     <button id="reset-all-btn">試合をリセット</button>
   </div>
 
+  <div class="kata-view" id="kata-view">
+    <div class="kata-head"><div class="kata-name" id="kata-name">選手1</div><div class="kata-title">形</div></div>
+    <div class="kata-judges" id="kata-judges"></div>
+    <div class="kata-total">
+      <div class="kata-total-label">合計(最高点・最低点を除く3名)</div>
+      <div class="kata-total-num pending" id="kata-total-num">—</div>
+    </div>
+    <div class="kfooter">
+      <button id="kata-settings">設定</button>
+      <button id="kata-rank">順位表</button>
+      <button id="kata-undo">一つ前に戻す</button>
+      <button id="kata-next">確定して次の選手へ</button>
+    </div>
+  </div>
+
   <div class="credit" aria-hidden="true">©yamane1229</div>
 </div>
 
@@ -486,6 +547,9 @@
       <input type="number" id="set-sec" min="0" max="59" value="30">
       <span>秒</span>
     </div>
+
+    <h4>競技</h4>
+    <div class="seg"><button id="mode-kumite" class="on">組手</button><button id="mode-kata">形</button></div>
 
     <h4>画面の入れ替え</h4>
     <div class="toggle-row">
@@ -522,6 +586,44 @@
   </div>
 </div>
 
+<div class="overlay" id="kpad-overlay">
+  <div class="panel">
+    <h3 id="kpad-title">審判1の点数</h3>
+    <div class="kpad-display" id="kpad-display">&nbsp;</div>
+    <div class="kpad-hint">例: 72 → 7.2 / 85 → 8.5 / 100 → 10.0</div>
+    <div class="kpad-err" id="kpad-err"></div>
+    <div class="kpad-grid">
+      <button data-k="1">1</button><button data-k="2">2</button><button data-k="3">3</button>
+      <button data-k="4">4</button><button data-k="5">5</button><button data-k="6">6</button>
+      <button data-k="7">7</button><button data-k="8">8</button><button data-k="9">9</button>
+      <button data-k="back" class="sub">削除</button><button data-k="0">0</button><button data-k="." >.</button>
+      <button data-k="clear" class="sub">この点を消す</button><button data-k="cancel" class="sub">キャンセル</button><button data-k="ok" class="ok">OK</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="kname-overlay">
+  <div class="panel">
+    <h3>選手名</h3>
+    <input type="text" class="kname-input" id="kname-input" maxlength="20" placeholder="選手名(任意)">
+    <div class="panel-buttons">
+      <button class="btn-secondary" id="kname-cancel">キャンセル</button>
+      <button class="btn-primary" id="kname-ok">決定</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="rank-overlay">
+  <div class="panel">
+    <h3>順位表</h3>
+    <div class="rank-list" id="rank-list"></div>
+    <div class="panel-buttons">
+      <button class="btn-danger" id="rank-clear">全て削除</button>
+      <button class="btn-secondary" id="rank-close">閉じる</button>
+    </div>
+  </div>
+</div>
+
 <div class="overlay result-overlay" id="result-overlay">
   <div class="result-content">
     <div class="result-flags">
@@ -553,6 +655,7 @@
     timer: { duration: 90, remaining: 90, running: false, intervalId: null },
     // 画面の入れ替え(赤青の表示位置)
     display: { swapColors: false, flipMode: false },
+    mode: 'kumite', // 'kumite'(組手) | 'kata'(形)
     resultShown: false // 試合終了時の勝敗表示を出しているか
   };
 
@@ -568,6 +671,7 @@
         if (s) {
           state.display.swapColors = !!s.swapColors;
           state.display.flipMode = !!s.flipMode;
+          if (s.mode === 'kata') state.mode = 'kata';
         }
       }
     } catch(e) {}
@@ -577,7 +681,8 @@
       localStorage.setItem('karate-tokuten-settings', JSON.stringify({
         duration: state.timer.duration,
         swapColors: state.display.swapColors,
-        flipMode: state.display.flipMode
+        flipMode: state.display.flipMode,
+        mode: state.mode
       }));
     } catch(e) {}
   }
@@ -587,6 +692,7 @@
     var appEl = document.getElementById('app');
     appEl.classList.toggle('layout-reversed', !!state.display.swapColors);
     appEl.classList.toggle('flip-mode', !!state.display.flipMode);
+    appEl.classList.toggle('mode-kata', state.mode === 'kata');
     buildMiniStrip();
     fitAllText();
   }
@@ -687,6 +793,7 @@
       num.style.width = size.w + 'px';
       fitTextElement(num, size.w, size.h, 14, 260);
     });
+    fitKata();
     // タイマー — 枠の高さ・幅に収まる最大の大きさに自動調整(低い画面でも切れない)
     var tArea = document.querySelector('.timer-area');
     var tDisp = document.getElementById('timer-display');
@@ -755,7 +862,7 @@
   // 試合終了時の勝敗表示(色旗+中央テキスト)の表示/非表示を更新
   function renderResultOverlay(matchEnded){
     var overlay = document.getElementById('result-overlay');
-    if (!matchEnded || !state.resultShown) {
+    if (state.mode === 'kata' || !matchEnded || !state.resultShown) {
       overlay.classList.remove('show');
       return;
     }
@@ -1062,6 +1169,212 @@
     saveSettings();
   });
 
+
+  // ================= 形(かた)モード =================
+  // 審判5名の点数を入力し、最高点・最低点を1つずつ除いた3名の合計を表示する(点数は0.1刻み)
+  var KATA_KEY = 'karate-kata-v1';
+  var kata = { name: '', judges: [null,null,null,null,null], results: [], hist: [] };
+  function loadKata(){
+    try {
+      var r = JSON.parse(localStorage.getItem(KATA_KEY) || 'null');
+      if (r) { kata.name = r.name || ''; kata.results = r.results || []; if (r.judges && r.judges.length === 5) kata.judges = r.judges; }
+    } catch(e) {}
+  }
+  function saveKata(){
+    try { localStorage.setItem(KATA_KEY, JSON.stringify({ name: kata.name, judges: kata.judges, results: kata.results })); } catch(e) {}
+  }
+  function fmtTenths(v){ return (v/10).toFixed(1); }
+  function kataName(){ return kata.name || ('選手' + (kata.results.length + 1)); }
+
+  // 5名分そろったら { total(0.1単位), hi:除外する最高点の審判番号, lo:最低点の審判番号 } を返す
+  function kataCompute(){
+    if (kata.judges.some(function(v){ return v === null; })) return null;
+    var idx = [0,1,2,3,4].sort(function(a,b){ return kata.judges[a] - kata.judges[b] || a - b; });
+    var lo = idx[0], hi = idx[4];
+    var sum = kata.judges[idx[1]] + kata.judges[idx[2]] + kata.judges[idx[3]];
+    return { total: sum, lo: lo, hi: hi };
+  }
+  function kataPush(){ kata.hist.push(JSON.stringify({ judges: kata.judges, name: kata.name })); if (kata.hist.length > 40) kata.hist.shift(); }
+
+  function buildKataJudges(){
+    var h = '';
+    for (var i = 0; i < 5; i++) {
+      h += '<div class="kj empty" data-i="'+i+'"><div class="kj-label">審判'+(i+1)+'</div><div class="kj-score">—</div><div class="kj-tag"></div></div>';
+    }
+    var box = document.getElementById('kata-judges');
+    box.innerHTML = h;
+    box.querySelectorAll('.kj').forEach(function(el){
+      el.addEventListener('click', function(){ playTapSound(); openKpad(parseInt(el.dataset.i, 10)); });
+    });
+  }
+  function renderKata(){
+    document.getElementById('kata-name').textContent = kataName();
+    var c = kataCompute();
+    document.querySelectorAll('#kata-judges .kj').forEach(function(el){
+      var i = parseInt(el.dataset.i, 10), v = kata.judges[i];
+      el.classList.toggle('empty', v === null);
+      el.querySelector('.kj-score').textContent = v === null ? '—' : fmtTenths(v);
+      var ex = c && (i === c.lo || i === c.hi);
+      el.classList.toggle('excluded', !!ex);
+      el.querySelector('.kj-tag').textContent = ex ? (i === c.hi ? '除外(最高)' : '除外(最低)') : '';
+    });
+    var t = document.getElementById('kata-total-num');
+    t.textContent = c ? fmtTenths(c.total) : '—';
+    t.classList.toggle('pending', !c);
+    fitKata();
+  }
+  function fitKata(){
+    if (state.mode !== 'kata') return;
+    document.querySelectorAll('#kata-judges .kj').forEach(function(el){
+      var s = el.querySelector('.kj-score');
+      var used = el.querySelector('.kj-label').offsetHeight + el.querySelector('.kj-tag').offsetHeight + 12;
+      fitTextElement(s, el.clientWidth - 40, el.clientHeight - used, 20, 260);
+    });
+    var tot = document.querySelector('.kata-total');
+    var tn = document.getElementById('kata-total-num');
+    if (tot && tn) fitTextElement(tn, tot.clientWidth - 24, tot.clientHeight - document.querySelector('.kata-total-label').offsetHeight - 12, 30, 500);
+  }
+
+  // --- 点数入力パッド ---
+  var kpadIndex = -1, kpadStr = '';
+  function parseKpad(str){
+    if (!str) return null;
+    var tenths;
+    if (str.indexOf('.') >= 0) {
+      if (!/^\d{1,2}(\.\d?)?$/.test(str)) return NaN;
+      tenths = Math.round(parseFloat(str) * 10);
+    } else if (/^\d+$/.test(str)) {
+      if (str.length === 1) tenths = parseInt(str, 10) * 10;      // 7 → 7.0
+      else if (str === '10') tenths = 100;                         // 10 → 10.0
+      else if (str.length === 2) tenths = parseInt(str, 10);       // 72 → 7.2
+      else if (str.length === 3) tenths = parseInt(str, 10);       // 100 → 10.0
+      else return NaN;
+    } else return NaN;
+    return tenths;
+  }
+  function kpadShow(){
+    document.getElementById('kpad-display').innerHTML = kpadStr ? kpadStr : '&nbsp;';
+    var v = parseKpad(kpadStr);
+    var err = document.getElementById('kpad-err');
+    if (kpadStr && (isNaN(v) || v < 0 || v > 100)) err.textContent = '0〜10.0の範囲で入力してください';
+    else if (kpadStr) err.textContent = '→ ' + fmtTenths(v);
+    else err.textContent = '';
+  }
+  function openKpad(i){
+    kpadIndex = i; kpadStr = '';
+    document.getElementById('kpad-title').textContent = '審判' + (i+1) + 'の点数' + (kata.judges[i] !== null ? '(現在 ' + fmtTenths(kata.judges[i]) + ')' : '');
+    kpadShow();
+    document.getElementById('kpad-overlay').classList.add('show');
+  }
+  function closeKpad(){ document.getElementById('kpad-overlay').classList.remove('show'); kpadIndex = -1; }
+  function kpadOk(){
+    var v = parseKpad(kpadStr);
+    if (v === null || isNaN(v) || v < 0 || v > 100) { kpadShow(); return; }
+    kataPush();
+    kata.judges[kpadIndex] = v;
+    saveKata();
+    var i = kpadIndex;
+    // 次の未入力の審判へ自動で進む
+    var next = -1;
+    for (var k = 1; k <= 4; k++) { var j = i + k; if (j < 5 && kata.judges[j] === null) { next = j; break; } }
+    renderKata();
+    if (next >= 0) openKpad(next); else closeKpad();
+  }
+  document.querySelectorAll('#kpad-overlay .kpad-grid button').forEach(function(b){
+    b.addEventListener('click', function(){
+      playTapSound();
+      var k = b.dataset.k;
+      if (k === 'ok') return kpadOk();
+      if (k === 'cancel') return closeKpad();
+      if (k === 'clear') {
+        if (kata.judges[kpadIndex] !== null) { kataPush(); kata.judges[kpadIndex] = null; saveKata(); renderKata(); }
+        return closeKpad();
+      }
+      if (k === 'back') kpadStr = kpadStr.slice(0, -1);
+      else if (k === '.') { if (kpadStr.indexOf('.') < 0) kpadStr += (kpadStr ? '.' : '0.'); }
+      else if (kpadStr.length < 4) kpadStr += k;
+      kpadShow();
+    });
+  });
+
+  // --- 選手名 ---
+  document.getElementById('kata-name').addEventListener('click', function(){
+    playTapSound();
+    document.getElementById('kname-input').value = kata.name;
+    document.getElementById('kname-overlay').classList.add('show');
+    setTimeout(function(){ document.getElementById('kname-input').focus(); }, 50);
+  });
+  document.getElementById('kname-cancel').addEventListener('click', function(){ playTapSound(); document.getElementById('kname-overlay').classList.remove('show'); });
+  document.getElementById('kname-ok').addEventListener('click', function(){
+    playTapSound();
+    kataPush();
+    kata.name = document.getElementById('kname-input').value.trim();
+    saveKata(); renderKata();
+    document.getElementById('kname-overlay').classList.remove('show');
+  });
+
+  // --- 順位表 ---
+  function renderRank(){
+    var list = document.getElementById('rank-list');
+    if (kata.results.length === 0) { list.innerHTML = '<div class="rank-empty">まだ確定した選手がいません</div>'; return; }
+    var sorted = kata.results.slice().sort(function(a,b){ return b.total - a.total; });
+    var h = '', rank = 0, prev = null;
+    sorted.forEach(function(r, i){
+      if (prev === null || r.total !== prev) rank = i + 1;
+      prev = r.total;
+      var nm = String(r.name).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; });
+      h += '<div class="rank-row"><div class="rk">'+rank+'位</div><div class="nm">'+nm+'</div><div class="sc">'+fmtTenths(r.total)+'</div></div>';
+    });
+    list.innerHTML = h;
+  }
+  var rankClearArmed = false;
+  document.getElementById('kata-rank').addEventListener('click', function(){
+    playTapSound(); renderRank(); rankClearArmed = false;
+    document.getElementById('rank-clear').textContent = '全て削除';
+    document.getElementById('rank-overlay').classList.add('show');
+  });
+  document.getElementById('rank-close').addEventListener('click', function(){ playTapSound(); document.getElementById('rank-overlay').classList.remove('show'); });
+  document.getElementById('rank-clear').addEventListener('click', function(){
+    playTapSound();
+    if (!rankClearArmed) { rankClearArmed = true; this.textContent = '本当に削除する'; return; }
+    kata.results = []; saveKata(); renderRank(); rankClearArmed = false; this.textContent = '全て削除';
+  });
+
+  // --- フッター ---
+  document.getElementById('kata-settings').addEventListener('click', function(){ document.getElementById('settings-btn').click(); });
+  document.getElementById('kata-undo').addEventListener('click', function(){
+    playTapSound();
+    if (!kata.hist.length) return;
+    var snap = JSON.parse(kata.hist.pop());
+    kata.judges = snap.judges; kata.name = snap.name;
+    saveKata(); renderKata();
+  });
+  document.getElementById('kata-next').addEventListener('click', function(){
+    playTapSound();
+    var c = kataCompute();
+    if (!c) { openKpad(kata.judges.indexOf(null)); return; }   // 未入力の審判がいれば入力へ
+    kata.results.push({ name: kataName(), total: c.total, scores: kata.judges.slice() });
+    kata.judges = [null,null,null,null,null]; kata.name = ''; kata.hist = [];
+    saveKata(); renderKata();
+  });
+
+  // --- 競技(組手/形)の切り替え ---
+  function updateModeButtons(){
+    document.getElementById('mode-kumite').classList.toggle('on', state.mode === 'kumite');
+    document.getElementById('mode-kata').classList.toggle('on', state.mode === 'kata');
+  }
+  function setMode(m){
+    playTapSound();
+    if (m === state.mode) return;
+    if (m === 'kata' && state.timer.running) stopTimer();
+    state.mode = m;
+    updateModeButtons(); applyDisplayLayout(); saveSettings(); render(); renderKata();
+  }
+  document.getElementById('mode-kumite').addEventListener('click', function(){ setMode('kumite'); });
+  document.getElementById('mode-kata').addEventListener('click', function(){ setMode('kata'); });
+
+  buildKataJudges(); loadKata();
+
   // settings overlay
   var settingsOverlay = document.getElementById('settings-overlay');
   document.getElementById('settings-btn').addEventListener('click', function(){
@@ -1069,6 +1382,7 @@
     document.getElementById('set-min').value = Math.floor(state.timer.duration/60);
     document.getElementById('set-sec').value = state.timer.duration%60;
     updateDisplayToggleButtons();
+    updateModeButtons();
     settingsOverlay.classList.add('show');
   });
   document.getElementById('settings-cancel').addEventListener('click', function(){
@@ -1130,9 +1444,11 @@
   window.addEventListener('orientationchange', function(){ setTimeout(fitAllText, 300); });
 
   loadSettings();
+  updateModeButtons();
   applyDisplayLayout();
   updateDisplayToggleButtons();
   render();
+  renderKata();
 
   // ホーム画面追加後もオフラインで起動できるようService Workerを登録
   if ('serviceWorker' in navigator) {
