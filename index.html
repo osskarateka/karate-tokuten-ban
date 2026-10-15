@@ -518,7 +518,7 @@
     <div class="kata-head"><div class="kata-name" id="kata-name">選手1</div><div class="kata-title">形</div></div>
     <div class="kata-judges" id="kata-judges"></div>
     <div class="kata-total">
-      <div class="kata-total-label" id="kata-total-label">合計(最高点・最低点を除く中央3名)</div>
+      <div class="kata-total-label" id="kata-total-label">合計(最高点・最低点を除く3名)</div>
       <div class="kata-total-num pending" id="kata-total-num">—</div>
     </div>
     <div class="kfooter">
@@ -593,7 +593,7 @@
 
 <div class="overlay" id="kpad-overlay">
   <div class="panel">
-    <h3 id="kpad-title">Judge1の点数</h3>
+    <h3 id="kpad-title">Judge1</h3>
     <div class="kpad-display" id="kpad-display">&nbsp;</div>
     <div class="kpad-hint">例: 72 → 7.2 / 85 → 8.5 / 100 → 10.0</div>
     <div class="kpad-err" id="kpad-err"></div>
@@ -1203,10 +1203,10 @@
   function kataName(){ return kata.name || ('選手' + (kata.results.length + 1)); }
 
   // 全員そろったら { total(0.1単位), lo:除外する最低点のJudge番号の配列, hi:除外する最高点の配列 } を返す
-  // 5人制: 最高・最低を各1名除外 / 7人制: 最高・最低を各2名除外 → どちらも中央3名の合計
+  // 5人制・7人制とも、最高・最低を各1名除外した残り(5人制=3名、7人制=5名)の合計
   function kataCompute(){
     if (kata.judges.some(function(v){ return v === null; })) return null;
-    var n = kata.n, drop = (n - 3) / 2;
+    var n = kata.n, drop = 1;
     var idx = []; for (var i = 0; i < n; i++) idx.push(i);
     idx.sort(function(a,b){ return kata.judges[a] - kata.judges[b] || a - b; });
     var sum = 0;
@@ -1225,7 +1225,7 @@
     box.querySelectorAll('.kj').forEach(function(el){
       el.addEventListener('click', function(){ playTapSound(); openKpad(parseInt(el.dataset.i, 10)); });
     });
-    document.getElementById('kata-total-label').textContent = '合計(最高点・最低点を除く中央3名)';
+    document.getElementById('kata-total-label').textContent = '合計(最高点・最低点を除く' + (kata.n - 2) + '名)';
   }
   function renderKata(){
     document.getElementById('kata-name').textContent = kataName();
@@ -1282,7 +1282,7 @@
   }
   function openKpad(i){
     kpadIndex = i; kpadStr = '';
-    document.getElementById('kpad-title').textContent = 'Judge' + (i+1) + 'の点数' + (kata.judges[i] !== null ? '(現在 ' + fmtTenths(kata.judges[i]) + ')' : '');
+    document.getElementById('kpad-title').textContent = 'Judge' + (i+1) + (kata.judges[i] !== null ? '(現在 ' + fmtTenths(kata.judges[i]) + ')' : '');
     kpadShow();
     document.getElementById('kpad-overlay').classList.add('show');
   }
