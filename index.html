@@ -391,6 +391,7 @@
   .kfooter { flex:0 0 auto; display:flex; gap:2vw; justify-content:center; padding:10px 12px; background:#0a0a0a; border-top:1px solid #222; }
   .kfooter button { flex:1; max-width:240px; background:#1a1a1a; color:#ddd; border:1px solid #444; border-radius:10px; padding:clamp(8px,2vh,18px) 8px; font-size:clamp(12px,2.4vw,22px); font-weight:700; cursor:pointer; }
   .kfooter #kata-next { color:#9fe3a8; border-color:#2f6b3a; }
+  .kfooter #kata-reset { color:#ff8a8a; border-color:#7a1522; }
   .kfooter #kata-undo { color:#ffd27a; border-color:#6b5420; }
   .kpad-display { text-align:center; font-size:44px; font-weight:800; color:var(--yellow); min-height:56px; margin-bottom:6px; font-variant-numeric:tabular-nums; }
   .kpad-hint { font-size:11px; color:#888; text-align:center; margin-bottom:10px; }
@@ -517,14 +518,15 @@
     <div class="kata-head"><div class="kata-name" id="kata-name">選手1</div><div class="kata-title">形</div></div>
     <div class="kata-judges" id="kata-judges"></div>
     <div class="kata-total">
-      <div class="kata-total-label">合計(最高点・最低点を除く3名)</div>
+      <div class="kata-total-label" id="kata-total-label">合計(最高点・最低点を除く中央3名)</div>
       <div class="kata-total-num pending" id="kata-total-num">—</div>
     </div>
     <div class="kfooter">
       <button id="kata-settings">設定</button>
       <button id="kata-rank">順位表</button>
+      <button id="kata-reset">リセット</button>
       <button id="kata-undo">一つ前に戻す</button>
-      <button id="kata-next">確定して次の選手へ</button>
+      <button id="kata-next">次の選手へ(確定)</button>
     </div>
   </div>
 
@@ -550,6 +552,9 @@
 
     <h4>競技</h4>
     <div class="seg"><button id="mode-kumite" class="on">組手</button><button id="mode-kata">形</button></div>
+
+    <h4>Judge人数(形)</h4>
+    <div class="seg"><button id="kj-5" class="on">5人制</button><button id="kj-7">7人制</button></div>
 
     <h4>画面の入れ替え</h4>
     <div class="toggle-row">
@@ -588,7 +593,7 @@
 
 <div class="overlay" id="kpad-overlay">
   <div class="panel">
-    <h3 id="kpad-title">審判1の点数</h3>
+    <h3 id="kpad-title">Judge1の点数</h3>
     <div class="kpad-display" id="kpad-display">&nbsp;</div>
     <div class="kpad-hint">例: 72 → 7.2 / 85 → 8.5 / 100 → 10.0</div>
     <div class="kpad-err" id="kpad-err"></div>
@@ -613,12 +618,22 @@
   </div>
 </div>
 
+<div class="overlay" id="kreset-overlay">
+  <div class="panel">
+    <h3>リセットしますか？</h3>
+    <div style="font-size:13px;color:#aaa;text-align:center;margin-bottom:12px;line-height:1.6">順位表の記録と、左上の選手番号を最初(選手1)に戻します。入力中の点数も消えます。</div>
+    <div class="panel-buttons">
+      <button class="btn-secondary" id="kreset-cancel">キャンセル</button>
+      <button class="btn-danger" id="kreset-ok">リセットする</button>
+    </div>
+  </div>
+</div>
+
 <div class="overlay" id="rank-overlay">
   <div class="panel">
     <h3>順位表</h3>
     <div class="rank-list" id="rank-list"></div>
     <div class="panel-buttons">
-      <button class="btn-danger" id="rank-clear">全て削除</button>
       <button class="btn-secondary" id="rank-close">閉じる</button>
     </div>
   </div>
@@ -1173,39 +1188,44 @@
   // ================= 形(かた)モード =================
   // 審判5名の点数を入力し、最高点・最低点を1つずつ除いた3名の合計を表示する(点数は0.1刻み)
   var KATA_KEY = 'karate-kata-v1';
-  var kata = { name: '', judges: [null,null,null,null,null], results: [], hist: [] };
+  var kata = { n: 5, name: '', judges: [null,null,null,null,null], results: [], hist: [] };
   function loadKata(){
     try {
       var r = JSON.parse(localStorage.getItem(KATA_KEY) || 'null');
-      if (r) { kata.name = r.name || ''; kata.results = r.results || []; if (r.judges && r.judges.length === 5) kata.judges = r.judges; }
+      if (r) { kata.n = (r.n === 7) ? 7 : 5; kata.name = r.name || ''; kata.results = r.results || []; kata.judges = (r.judges && r.judges.length === kata.n) ? r.judges : emptyJudges(kata.n); }
     } catch(e) {}
   }
   function saveKata(){
-    try { localStorage.setItem(KATA_KEY, JSON.stringify({ name: kata.name, judges: kata.judges, results: kata.results })); } catch(e) {}
+    try { localStorage.setItem(KATA_KEY, JSON.stringify({ n: kata.n, name: kata.name, judges: kata.judges, results: kata.results })); } catch(e) {}
   }
+  function emptyJudges(n){ var a = []; for (var i = 0; i < n; i++) a.push(null); return a; }
   function fmtTenths(v){ return (v/10).toFixed(1); }
   function kataName(){ return kata.name || ('選手' + (kata.results.length + 1)); }
 
-  // 5名分そろったら { total(0.1単位), hi:除外する最高点の審判番号, lo:最低点の審判番号 } を返す
+  // 全員そろったら { total(0.1単位), lo:除外する最低点のJudge番号の配列, hi:除外する最高点の配列 } を返す
+  // 5人制: 最高・最低を各1名除外 / 7人制: 最高・最低を各2名除外 → どちらも中央3名の合計
   function kataCompute(){
     if (kata.judges.some(function(v){ return v === null; })) return null;
-    var idx = [0,1,2,3,4].sort(function(a,b){ return kata.judges[a] - kata.judges[b] || a - b; });
-    var lo = idx[0], hi = idx[4];
-    var sum = kata.judges[idx[1]] + kata.judges[idx[2]] + kata.judges[idx[3]];
-    return { total: sum, lo: lo, hi: hi };
+    var n = kata.n, drop = (n - 3) / 2;
+    var idx = []; for (var i = 0; i < n; i++) idx.push(i);
+    idx.sort(function(a,b){ return kata.judges[a] - kata.judges[b] || a - b; });
+    var sum = 0;
+    for (var k = drop; k < n - drop; k++) sum += kata.judges[idx[k]];
+    return { total: sum, lo: idx.slice(0, drop), hi: idx.slice(n - drop) };
   }
   function kataPush(){ kata.hist.push(JSON.stringify({ judges: kata.judges, name: kata.name })); if (kata.hist.length > 40) kata.hist.shift(); }
 
   function buildKataJudges(){
     var h = '';
-    for (var i = 0; i < 5; i++) {
-      h += '<div class="kj empty" data-i="'+i+'"><div class="kj-label">審判'+(i+1)+'</div><div class="kj-score">—</div><div class="kj-tag"></div></div>';
+    for (var i = 0; i < kata.n; i++) {
+      h += '<div class="kj empty" data-i="'+i+'"><div class="kj-label">Judge'+(i+1)+'</div><div class="kj-score">—</div><div class="kj-tag"></div></div>';
     }
     var box = document.getElementById('kata-judges');
     box.innerHTML = h;
     box.querySelectorAll('.kj').forEach(function(el){
       el.addEventListener('click', function(){ playTapSound(); openKpad(parseInt(el.dataset.i, 10)); });
     });
+    document.getElementById('kata-total-label').textContent = '合計(最高点・最低点を除く中央3名)';
   }
   function renderKata(){
     document.getElementById('kata-name').textContent = kataName();
@@ -1214,9 +1234,9 @@
       var i = parseInt(el.dataset.i, 10), v = kata.judges[i];
       el.classList.toggle('empty', v === null);
       el.querySelector('.kj-score').textContent = v === null ? '—' : fmtTenths(v);
-      var ex = c && (i === c.lo || i === c.hi);
-      el.classList.toggle('excluded', !!ex);
-      el.querySelector('.kj-tag').textContent = ex ? (i === c.hi ? '除外(最高)' : '除外(最低)') : '';
+      var isHi = c && c.hi.indexOf(i) >= 0, isLo = c && c.lo.indexOf(i) >= 0;
+      el.classList.toggle('excluded', !!(isHi || isLo));
+      el.querySelector('.kj-tag').textContent = isHi ? '除外(最高)' : (isLo ? '除外(最低)' : '');
     });
     var t = document.getElementById('kata-total-num');
     t.textContent = c ? fmtTenths(c.total) : '—';
@@ -1262,7 +1282,7 @@
   }
   function openKpad(i){
     kpadIndex = i; kpadStr = '';
-    document.getElementById('kpad-title').textContent = '審判' + (i+1) + 'の点数' + (kata.judges[i] !== null ? '(現在 ' + fmtTenths(kata.judges[i]) + ')' : '');
+    document.getElementById('kpad-title').textContent = 'Judge' + (i+1) + 'の点数' + (kata.judges[i] !== null ? '(現在 ' + fmtTenths(kata.judges[i]) + ')' : '');
     kpadShow();
     document.getElementById('kpad-overlay').classList.add('show');
   }
@@ -1276,7 +1296,7 @@
     var i = kpadIndex;
     // 次の未入力の審判へ自動で進む
     var next = -1;
-    for (var k = 1; k <= 4; k++) { var j = i + k; if (j < 5 && kata.judges[j] === null) { next = j; break; } }
+    for (var j = i + 1; j < kata.n; j++) { if (kata.judges[j] === null) { next = j; break; } }
     renderKata();
     if (next >= 0) openKpad(next); else closeKpad();
   }
@@ -1327,38 +1347,51 @@
     });
     list.innerHTML = h;
   }
-  var rankClearArmed = false;
   document.getElementById('kata-rank').addEventListener('click', function(){
-    playTapSound(); renderRank(); rankClearArmed = false;
-    document.getElementById('rank-clear').textContent = '全て削除';
+    playTapSound(); renderRank();
     document.getElementById('rank-overlay').classList.add('show');
   });
   document.getElementById('rank-close').addEventListener('click', function(){ playTapSound(); document.getElementById('rank-overlay').classList.remove('show'); });
-  document.getElementById('rank-clear').addEventListener('click', function(){
-    playTapSound();
-    if (!rankClearArmed) { rankClearArmed = true; this.textContent = '本当に削除する'; return; }
-    kata.results = []; saveKata(); renderRank(); rankClearArmed = false; this.textContent = '全て削除';
-  });
 
   // --- フッター ---
   document.getElementById('kata-settings').addEventListener('click', function(){ document.getElementById('settings-btn').click(); });
+  document.getElementById('kata-reset').addEventListener('click', function(){ playTapSound(); document.getElementById('kreset-overlay').classList.add('show'); });
+  document.getElementById('kreset-cancel').addEventListener('click', function(){ playTapSound(); document.getElementById('kreset-overlay').classList.remove('show'); });
+  document.getElementById('kreset-ok').addEventListener('click', function(){
+    playTapSound();
+    kata.results = []; kata.name = ''; kata.judges = emptyJudges(kata.n); kata.hist = [];
+    saveKata(); renderKata();
+    document.getElementById('kreset-overlay').classList.remove('show');
+  });
   document.getElementById('kata-undo').addEventListener('click', function(){
     playTapSound();
     if (!kata.hist.length) return;
     var snap = JSON.parse(kata.hist.pop());
-    kata.judges = snap.judges; kata.name = snap.name;
+    if (snap.judges.length === kata.n) { kata.judges = snap.judges; kata.name = snap.name; }
     saveKata(); renderKata();
   });
   document.getElementById('kata-next').addEventListener('click', function(){
     playTapSound();
     var c = kataCompute();
-    if (!c) { openKpad(kata.judges.indexOf(null)); return; }   // 未入力の審判がいれば入力へ
+    if (!c) { openKpad(kata.judges.indexOf(null)); return; }   // 未入力のJudgeがいれば入力へ
     kata.results.push({ name: kataName(), total: c.total, scores: kata.judges.slice() });
-    kata.judges = [null,null,null,null,null]; kata.name = ''; kata.hist = [];
+    kata.judges = emptyJudges(kata.n); kata.name = ''; kata.hist = [];
     saveKata(); renderKata();
   });
 
   // --- 競技(組手/形)の切り替え ---
+  function updateJudgeButtons(){
+    document.getElementById('kj-5').classList.toggle('on', kata.n === 5);
+    document.getElementById('kj-7').classList.toggle('on', kata.n === 7);
+  }
+  function setJudgeCount(n){
+    playTapSound();
+    if (n === kata.n) return;
+    kata.n = n; kata.judges = emptyJudges(n); kata.hist = [];
+    saveKata(); buildKataJudges(); renderKata(); updateJudgeButtons();
+  }
+  document.getElementById('kj-5').addEventListener('click', function(){ setJudgeCount(5); });
+  document.getElementById('kj-7').addEventListener('click', function(){ setJudgeCount(7); });
   function updateModeButtons(){
     document.getElementById('mode-kumite').classList.toggle('on', state.mode === 'kumite');
     document.getElementById('mode-kata').classList.toggle('on', state.mode === 'kata');
@@ -1373,7 +1406,7 @@
   document.getElementById('mode-kumite').addEventListener('click', function(){ setMode('kumite'); });
   document.getElementById('mode-kata').addEventListener('click', function(){ setMode('kata'); });
 
-  buildKataJudges(); loadKata();
+  loadKata(); buildKataJudges(); updateJudgeButtons();
 
   // settings overlay
   var settingsOverlay = document.getElementById('settings-overlay');
