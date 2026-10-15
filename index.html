@@ -738,7 +738,7 @@
     if (!strip) return;
     ['aka','ao'].forEach(function(side){
       var s = state[side];
-      strip.querySelectorAll('[data-side="'+side+'"]').forEach(function(el){
+      strip.querySelectorAll('[data-m][data-side="'+side+'"]').forEach(function(el){
         var k = el.dataset.m;
         if (k === 'total') el.textContent = total(side);
         else if (k === 'pen') el.textContent = PENALTY_LABELS[s.penalty] || '';
