@@ -423,7 +423,7 @@
   .mini-grp { flex:1; display:flex; min-width:0; border:1px solid; }
   .mini-grp.aka { border-color:rgba(230,57,74,.55); background:rgba(230,57,74,.07); }
   .mini-grp.ao { border-color:rgba(58,91,220,.55); background:rgba(58,91,220,.07); }
-  .mini-cell { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; border-left:1px solid rgba(255,255,255,.08); min-width:0; }
+  .mini-cell { cursor:pointer; flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; border-left:1px solid rgba(255,255,255,.08); min-width:0; }
   .mini-cell:first-child { border-left:none; }
   .mini-label { font-size:clamp(8px,1.1vw,12px); color:#999; line-height:1; white-space:nowrap; }
   .mini-num { font-size:clamp(18px,3.2vw,34px); font-weight:700; color:#ccc; line-height:1.05; }
@@ -717,9 +717,9 @@
   function miniGroup(side, innerOnRight){
     var cells = '<div class="mini-score" data-m="total" data-side="'+side+'">0</div>';
     MINI_CATS.forEach(function(c){
-      cells += '<div class="mini-cell"><div class="mini-label">'+c[1]+'</div><div class="mini-num" data-m="'+c[0]+'" data-side="'+side+'">0</div></div>';
+      cells += '<div class="mini-cell" data-side="'+side+'" data-cat="'+c[0]+'"><div class="mini-label">'+c[1]+'</div><div class="mini-num" data-m="'+c[0]+'" data-side="'+side+'">0</div></div>';
     });
-    cells += '<div class="mini-cell mini-pen"><div class="mini-label">カテゴリー</div><div class="mini-num" data-m="pen" data-side="'+side+'"></div></div>';
+    cells += '<div class="mini-cell mini-pen" data-side="'+side+'" data-cat="pen"><div class="mini-label">カテゴリー</div><div class="mini-num" data-m="pen" data-side="'+side+'"></div></div>';
     // 内側(中央)から 得点→有効→技あり→一本→カテゴリー。左側のグループは内側が右端になるので逆順に並べる
     var parts = cells.split(/(?=<div class="mini-(?:score|cell))/);
     if (innerOnRight) parts.reverse();
@@ -1176,6 +1176,15 @@
     applyDisplayLayout();
     saveSettings();
   });
+  // ミニ得点板でも 有効/技あり/一本/カテゴリー をタップして操作できる(本画面と同じ動作)
+  document.getElementById('mini-strip').addEventListener('click', function(e){
+    var cell = e.target.closest('.mini-cell');
+    if (!cell) return;
+    playTapSound();
+    if (cell.dataset.cat === 'pen') cyclePenalty(cell.dataset.side);
+    else incCat(cell.dataset.side, cell.dataset.cat);
+  });
+
   flipModeBtn.addEventListener('click', function(){
     playTapSound();
     state.display.flipMode = !state.display.flipMode;
