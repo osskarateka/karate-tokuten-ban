@@ -194,7 +194,7 @@
   .vs-cell .vote { font-size:clamp(8px,1.5vh,12px); left:4px; }
   .vs-cell .jl { position:absolute; right:8px; top:4px; font-size:clamp(10px,2.2vh,18px); color:#bbb; font-weight:700; }
   .vs-cell.win .jl { color:#fff; }
-  .vs-side { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; min-width:0; cursor:pointer; border:2px solid; margin:4px; border-radius:12px; }
+  .vs-side { flex:1 1 0; display:flex; flex-direction:column; align-items:center; justify-content:center; min-width:0; cursor:pointer; border:2px solid; margin:4px; border-radius:12px; }
   .vs-side.aka { border-color:var(--aka); } .vs-side.ao { border-color:var(--ao); }
   .vs-side.win { box-shadow: inset 0 0 40px 6px rgba(255,255,255,.28); }
   .vs-votes { font-size:90px; font-weight:800; line-height:1; font-variant-numeric:tabular-nums; }
@@ -248,7 +248,6 @@
   <div class="vs-view" id="vs-view">
     <div class="vs-tally">
       <div class="vs-side aka" id="vs-tally-a"><div class="vs-votes" id="vs-votes-a">0</div><div class="vs-sum" id="vs-sum-a">合計 —</div></div>
-      <div class="vs-mid"><div class="vs-title" id="vs-title">第1試合</div><div class="vs-unit">旗</div></div>
       <div class="vs-side ao" id="vs-tally-b"><div class="vs-votes" id="vs-votes-b">0</div><div class="vs-sum" id="vs-sum-b">合計 —</div></div>
     </div>
     <div class="vs-bands" id="vs-bands"><div class="vs-band aka" id="vs-band-a"></div><div class="vs-band ao" id="vs-band-b"></div></div>
@@ -480,7 +479,6 @@
     document.getElementById('vs-sum-b').textContent = '合計 ' + (any ? fmtTenths(c.sb) : '—');
     document.getElementById('vs-tally-a').classList.toggle('win', c.win === 'a');
     document.getElementById('vs-tally-b').classList.toggle('win', c.win === 'b');
-    document.getElementById('vs-title').textContent = '第' + vs.no + '試合';
     fitVs();
   }
   function fitVs(){
