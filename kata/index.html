@@ -225,6 +225,8 @@
   @media (max-height: 520px) { .vs-tally { height: 30vh; } .vs-side { margin:2px; } .vs-row .vs-cell { margin:2px; } .vs-jl small { display:none; } .credit { display:none; } }
   .vs-flip { display:none; order:-1; transform:rotate(180deg); opacity:.92; border-top:none; }
   .vs-view.flip-on .vs-flip { display:flex; }
+  .vs-view.flip-on .vs-bands:not(.vs-flip) { display:none; }
+  #kpad-overlay .panel.rot { transform:rotate(180deg); }
   @media (max-height: 520px) { .vs-bands { flex-basis:19%; } }
   .seg-toggle { flex:0 0 auto; min-width:64px; padding:8px 14px; border-radius:20px; border:1px solid #444; background:#2a2a2a; color:#ccc; font-size:13px; cursor:pointer; }
   .seg-toggle.on { background:#2b6fe0; border-color:#2b6fe0; color:#fff; }
@@ -637,6 +639,7 @@
   }
   function openKpad(t){
     kpadTarget = t; kpadStr = '';
+    document.querySelector('#kpad-overlay .panel').classList.toggle('rot', cfg.flip && t.s !== 'k');
     var cur = getScore(t);
     var title = 'Judge' + (t.i + 1) + (t.s === 'a' ? '(赤)' : (t.s === 'b' ? '(青)' : ''));
     var el = document.getElementById('kpad-title');
