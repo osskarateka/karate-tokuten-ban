@@ -182,7 +182,7 @@
   .result-sub { white-space:pre-line; text-align:center; font-size:clamp(14px,2.6vw,26px); color:#ddd; font-weight:700; }
   #result-close { padding:12px 28px; border-radius:8px; border:none; font-size:16px; cursor:pointer; }
   .vs-band { flex:0 0 15%; min-height:0; display:flex; padding:2px 6px; order:0; }
-  .vs-bands { flex:0 0 20%; min-height:0; display:flex; border-top:1px solid #222; border-bottom:1px solid #222; }
+  .vs-bands { flex:0 0 16%; min-height:0; display:flex; border-top:1px solid #222; border-bottom:1px solid #222; }
   .vs-view.swapped .vs-bands { flex-direction:row-reverse; }
   .vs-bands .vs-band { flex:1 1 0; border:none !important; padding:2px 3px; }
   .vs-bands .vs-cell { margin:2px; border-radius:8px; }
@@ -223,6 +223,11 @@
   .result-overlay.win-aka .flag-ao, .result-overlay.win-ao .flag-aka { display:none; }
   .vs-hide { display:none; }
   @media (max-height: 520px) { .vs-tally { height: 30vh; } .vs-side { margin:2px; } .vs-row .vs-cell { margin:2px; } .vs-jl small { display:none; } .credit { display:none; } }
+  .vs-flip { display:none; order:-1; transform:rotate(180deg); opacity:.92; border-top:none; }
+  .vs-view.flip-on .vs-flip { display:flex; }
+  @media (max-height: 520px) { .vs-bands { flex-basis:19%; } }
+  .seg-toggle { flex:0 0 auto; min-width:64px; padding:8px 14px; border-radius:20px; border:1px solid #444; background:#2a2a2a; color:#ccc; font-size:13px; cursor:pointer; }
+  .seg-toggle.on { background:#2b6fe0; border-color:#2b6fe0; color:#fff; }
 </style>
 </head>
 <body>
@@ -246,6 +251,7 @@
 
   <!-- 赤青対戦(審判ごとに高い方へ1票) -->
   <div class="vs-view" id="vs-view">
+    <div class="vs-bands vs-flip" id="vs-flip"><div class="vs-band aka" id="vs-flip-a"></div><div class="vs-band ao" id="vs-flip-b"></div></div>
     <div class="vs-tally">
       <div class="vs-side aka" id="vs-tally-a"><div class="vs-votes" id="vs-votes-a">0</div><div class="vs-sum" id="vs-sum-a">合計 —</div></div>
       <div class="vs-side ao" id="vs-tally-b"><div class="vs-votes" id="vs-votes-b">0</div><div class="vs-sum" id="vs-sum-b">合計 —</div></div>
@@ -270,6 +276,14 @@
     <div id="set-rank-only">
       <h4>Judge人数(順位戦)</h4>
       <div class="seg"><button id="kj-5" class="on">5人制</button><button id="kj-7">7人制</button></div>
+    </div>
+    <div id="set-vs-only">
+      <h4>反転モード(赤青対戦)</h4>
+      <div class="toggle-row" style="background:#1b1b1b;border:1px solid #333;border-radius:8px;padding:10px 12px;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;gap:10px">
+        <div style="font-size:14px;color:#ddd;text-align:left">画面上部にも点数を反転表示</div>
+        <button class="seg-toggle" id="toggle-flip">OFF</button>
+      </div>
+      <div class="toggle-notice" id="flip-notice" style="display:none">下部の点数が、上部に文字を反転して表示されます。タブレットを上下反対に持って使用してください。<br>※画面の向きを🗝️マークを押して固定してください。</div>
     </div>
     <div class="toggle-notice show" id="set-vs-note">赤青対戦: Judge1〜5がそれぞれ赤・青に点数をつけ、高い方に旗1本。旗の数が多い方の勝ちです。先に赤を全員、次に青を全員入力します。同じJudgeが赤・青に同点をつけるとエラーになります。</div>
     <div class="panel-buttons"><button class="btn-primary" id="settings-close">閉じる</button></div>
@@ -408,7 +422,7 @@
   var KATA_KEY = 'karate-kata-v1';        // 順位戦のデータ(従来と同じ)
   var CFG_KEY = 'karate-kata-v2';         // 方式・赤青対戦のデータ
   var kata = { n: 5, name: '', judges: [null,null,null,null,null], results: [], hist: [] };
-  var cfg = { mode: 'rank' };
+  var cfg = { mode: 'rank', flip: false };
   var vs = { a: [null,null,null,null,null], b: [null,null,null,null,null], no: 1, shown: false, swap: false, hist: [] };
   var appEl = document.getElementById('app');
   function emptyJudges(n){ var a = []; for (var i = 0; i < n; i++) a.push(null); return a; }
@@ -423,12 +437,13 @@
       var c = JSON.parse(localStorage.getItem(CFG_KEY) || 'null');
       if (c) {
         if (c.mode === 'vs') cfg.mode = 'vs';
+        cfg.flip = !!c.flip;
         if (c.vs && c.vs.a && c.vs.a.length === 5 && c.vs.b && c.vs.b.length === 5) { vs.a = c.vs.a; vs.b = c.vs.b; vs.no = c.vs.no || 1; vs.shown = !!c.vs.shown; vs.swap = !!c.vs.swap; }
       }
     } catch(e) {}
   }
   function saveKata(){ try { localStorage.setItem(KATA_KEY, JSON.stringify({ n: kata.n, name: kata.name, judges: kata.judges, results: kata.results })); } catch(e) {} }
-  function saveCfg(){ try { localStorage.setItem(CFG_KEY, JSON.stringify({ mode: cfg.mode, vs: { a: vs.a, b: vs.b, no: vs.no, shown: vs.shown, swap: vs.swap } })); } catch(e) {} }
+  function saveCfg(){ try { localStorage.setItem(CFG_KEY, JSON.stringify({ mode: cfg.mode, flip: cfg.flip, vs: { a: vs.a, b: vs.b, no: vs.no, shown: vs.shown, swap: vs.swap } })); } catch(e) {} }
 
   // ================= 赤青対戦 =================
   // 結果: 各Judgeが高い方に1票(同点は票なし)。票が多い方が勝ち。同票なら合計点、それも同じなら引き分け
@@ -451,12 +466,14 @@
   }
   function vsPush(){ vs.hist.push(JSON.stringify({ a: vs.a, b: vs.b, shown: vs.shown })); if (vs.hist.length > 40) vs.hist.shift(); }
   function buildVsRows(){
-    ['a','b'].forEach(function(side){
-      var h = '';
-      for (var i = 0; i < 5; i++) {
-        h += '<div class="vs-cell ' + (side === 'a' ? 'aka' : 'ao') + ' empty" data-s="'+side+'" data-i="'+i+'"><span class="vote">旗</span><span class="jl">Judge'+(i+1)+'</span><span class="sc">—</span></div>';
-      }
-      document.getElementById('vs-band-' + side).innerHTML = h;
+    ['band', 'flip'].forEach(function(kind){
+      ['a','b'].forEach(function(side){
+        var h = '';
+        for (var i = 0; i < 5; i++) {
+          h += '<div class="vs-cell ' + (side === 'a' ? 'aka' : 'ao') + ' empty" data-s="'+side+'" data-i="'+i+'"><span class="vote">旗</span><span class="jl">Judge'+(i+1)+'</span><span class="sc">—</span></div>';
+        }
+        document.getElementById('vs-' + kind + '-' + side).innerHTML = h;
+      });
     });
   }
   document.getElementById('vs-view').addEventListener('click', function(e){
@@ -465,6 +482,7 @@
   });
   function renderVs(){
     document.getElementById('vs-view').classList.toggle('swapped', vs.swap);
+    document.getElementById('vs-view').classList.toggle('flip-on', cfg.flip);
     var c = vsCompute();
     document.querySelectorAll('#vs-view .vs-cell').forEach(function(el){
       var s = el.dataset.s, i = parseInt(el.dataset.i, 10), v = vs[s][i];
@@ -740,6 +758,10 @@
     document.getElementById('kj-7').classList.toggle('on', kata.n === 7);
     document.getElementById('set-rank-only').style.display = cfg.mode === 'rank' ? '' : 'none';
     document.getElementById('set-vs-note').style.display = cfg.mode === 'vs' ? '' : 'none';
+    document.getElementById('set-vs-only').style.display = cfg.mode === 'vs' ? '' : 'none';
+    document.getElementById('toggle-flip').textContent = cfg.flip ? 'ON' : 'OFF';
+    document.getElementById('toggle-flip').classList.toggle('on', cfg.flip);
+    document.getElementById('flip-notice').style.display = cfg.flip ? 'block' : 'none';
   }
   function applyMode(){
     appEl.classList.toggle('m-rank', cfg.mode === 'rank');
@@ -752,6 +774,7 @@
   document.getElementById('settings-close').addEventListener('click', function(){ playTapSound(); document.getElementById('settings-overlay').classList.remove('show'); });
   document.getElementById('m-rank').addEventListener('click', function(){ playTapSound(); cfg.mode = 'rank'; saveCfg(); applyMode(); });
   document.getElementById('m-vs').addEventListener('click', function(){ playTapSound(); cfg.mode = 'vs'; saveCfg(); applyMode(); });
+  document.getElementById('toggle-flip').addEventListener('click', function(){ playTapSound(); cfg.flip = !cfg.flip; saveCfg(); updateSettingsUi(); renderVs(); });
   function setJudgeCount(n){
     playTapSound();
     if (n === kata.n) return;
