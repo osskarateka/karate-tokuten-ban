@@ -255,8 +255,8 @@
   <div class="vs-view" id="vs-view">
     <div class="vs-bands vs-flip" id="vs-flip"><div class="vs-band aka" id="vs-flip-a"></div><div class="vs-band ao" id="vs-flip-b"></div></div>
     <div class="vs-tally">
-      <div class="vs-side aka" id="vs-tally-a"><div class="vs-votes" id="vs-votes-a">0</div><div class="vs-sum" id="vs-sum-a">合計 —</div></div>
-      <div class="vs-side ao" id="vs-tally-b"><div class="vs-votes" id="vs-votes-b">0</div><div class="vs-sum" id="vs-sum-b">合計 —</div></div>
+      <div class="vs-side aka" id="vs-tally-a"><div class="vs-votes" id="vs-votes-a">0</div></div>
+      <div class="vs-side ao" id="vs-tally-b"><div class="vs-votes" id="vs-votes-b">0</div></div>
     </div>
     <div class="vs-bands" id="vs-bands"><div class="vs-band aka" id="vs-band-a"></div><div class="vs-band ao" id="vs-band-b"></div></div>
     <div class="kfooter">
@@ -494,9 +494,6 @@
     });
     document.getElementById('vs-votes-a').textContent = c.va;
     document.getElementById('vs-votes-b').textContent = c.vb;
-    var any = vs.a.concat(vs.b).some(function(v){ return v !== null; });
-    document.getElementById('vs-sum-a').textContent = '合計 ' + (any ? fmtTenths(c.sa) : '—');
-    document.getElementById('vs-sum-b').textContent = '合計 ' + (any ? fmtTenths(c.sb) : '—');
     document.getElementById('vs-tally-a').classList.toggle('win', c.win === 'a');
     document.getElementById('vs-tally-b').classList.toggle('win', c.win === 'b');
     fitVs();
@@ -508,7 +505,7 @@
     });
     ['a','b'].forEach(function(s){
       var box = document.getElementById('vs-tally-' + s);
-      fitTextElement(document.getElementById('vs-votes-' + s), box.clientWidth - 16, box.clientHeight - document.getElementById('vs-sum-' + s).offsetHeight - 12, 24, 400);
+      fitTextElement(document.getElementById('vs-votes-' + s), box.clientWidth - 16, box.clientHeight - 16, 24, 600);
     });
   }
   function showVsResult(){
