@@ -182,13 +182,16 @@
   .result-sub { white-space:pre-line; text-align:center; font-size:clamp(14px,2.6vw,26px); color:#ddd; font-weight:700; }
   #result-close { padding:12px 28px; border-radius:8px; border:none; font-size:16px; cursor:pointer; }
   .vs-band { flex:0 0 15%; min-height:0; display:flex; padding:2px 6px; order:0; }
-  .vs-tally { order:1; } #vs-band-a { order:2; } #vs-band-b { order:3; } .vs-view .kfooter { order:4; }
-  .vs-view.swapped #vs-band-a { order:3; } .vs-view.swapped #vs-band-b { order:2; }
+  .vs-bands { flex:0 0 20%; min-height:0; display:flex; border-top:1px solid #222; border-bottom:1px solid #222; }
+  .vs-view.swapped .vs-bands { flex-direction:row-reverse; }
+  .vs-bands .vs-band { flex:1 1 0; border:none !important; padding:2px 3px; }
+  .vs-bands .vs-cell { margin:2px; border-radius:8px; }
   .vs-view.swapped .vs-tally { flex-direction:row-reverse; }
   .vs-band.aka, .vs-band.ao { border-top:1px solid #222; border-bottom:1px solid #222; }
   .vs-tally { flex:1 1 auto; min-height:0; display:flex; align-items:stretch; }
   .vs-cell { flex-direction:column; }
-  .vs-cell .jl { font-size:clamp(9px,1.8vh,14px); }
+  .vs-cell .jl { font-size:clamp(8px,1.5vh,12px); right:4px; }
+  .vs-cell .vote { font-size:clamp(8px,1.5vh,12px); left:4px; }
   .vs-cell .jl { position:absolute; right:8px; top:4px; font-size:clamp(10px,2.2vh,18px); color:#bbb; font-weight:700; }
   .vs-cell.win .jl { color:#fff; }
   .vs-side { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; min-width:0; cursor:pointer; border:2px solid; margin:4px; border-radius:12px; }
@@ -243,13 +246,12 @@
 
   <!-- 赤青対戦(審判ごとに高い方へ1票) -->
   <div class="vs-view" id="vs-view">
-    <div class="vs-band aka" id="vs-band-a"></div>
     <div class="vs-tally">
       <div class="vs-side aka" id="vs-tally-a"><div class="vs-votes" id="vs-votes-a">0</div><div class="vs-sum" id="vs-sum-a">合計 —</div></div>
       <div class="vs-mid"><div class="vs-title" id="vs-title">第1試合</div><div class="vs-unit">旗</div></div>
       <div class="vs-side ao" id="vs-tally-b"><div class="vs-votes" id="vs-votes-b">0</div><div class="vs-sum" id="vs-sum-b">合計 —</div></div>
     </div>
-    <div class="vs-band ao" id="vs-band-b"></div>
+    <div class="vs-bands" id="vs-bands"><div class="vs-band aka" id="vs-band-a"></div><div class="vs-band ao" id="vs-band-b"></div></div>
     <div class="kfooter">
       <button id="vs-settings">設定</button>
       <button id="vs-swap">赤青入れ替え</button>
