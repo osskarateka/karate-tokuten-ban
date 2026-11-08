@@ -1,0 +1,754 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>形 得点板</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="../favicon.png">
+<link rel="apple-touch-icon" href="../apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="形 得点板">
+<meta name="theme-color" content="#000000">
+<style>
+  :root {
+    --bg: #000000;
+    --aka: #e6394a;
+    --aka-dim: #7a1522;
+    --ao: #3a5bdc;
+    --ao-dim: #16204d;
+    --yellow: #f2d43a;
+    --orange: #ff9a2e;
+    --panel-line-aka: #e6394a;
+    --panel-line-ao: #3a5bdc;
+    --text-white: #f2f2f2;
+    --gray: #3a3a3a;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) { --bg: #000000; }
+  }
+  :root[data-theme="dark"] { --bg: #000000; }
+
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; }
+  html, body {
+    margin: 0; padding: 0; height: 100%;
+    background: var(--bg);
+    font-family: 'Hiragino Sans', 'Yu Gothic', 'Segoe UI', system-ui, sans-serif;
+    overflow: hidden;
+    color: var(--text-white);
+  }
+  .app {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    height: 100dvh;   /* iPhoneのSafariでアドレスバーに隠れないよう、実際に見えている高さに合わせる */
+    width: 100vw;
+    /* ノッチ・ホームバーに被らないよう安全領域ぶん内側に寄せる */
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  }
+  .overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.75);
+    display: none; align-items: center; justify-content: center; z-index: 10;
+  }
+  .overlay.show { display: flex; }
+  .panel {
+    background: #141414; border: 1px solid #333; border-radius: 12px;
+    padding: 20px; width: min(340px, 90vw);
+    max-height: 94vh; max-height: 94dvh; overflow-y: auto;   /* 低い画面でも「セット」まで届くようスクロール可 */
+  }
+  .panel h3 { margin: 0 0 14px; font-size: 16px; color: #eee; text-align: center; }
+  .panel h4 { margin: 0 0 10px; font-size: 13px; color: #999; font-weight: 600; }
+  .panel .row { display: flex; align-items: center; justify-content: center; gap: 10px; margin-bottom: 14px; }
+  .panel input {
+    width: 64px; font-size: 22px; text-align: center; background: #000;
+    color: #fff; border: 1px solid #444; border-radius: 6px; padding: 6px;
+  }
+  .panel .row span { font-size: 20px; color: #ccc; }
+  .panel-buttons { display: flex; gap: 10px; margin-top: 10px; }
+  .panel-buttons button {
+    flex: 1; padding: 10px; border-radius: 8px; border: none; font-size: 15px; cursor: pointer;
+  }
+  .btn-primary { background: #2b6fe0; color: #fff; }
+  .btn-secondary { background: #333; color: #ddd; }
+  .btn-danger { background: #7a1522; color: #fff; }
+
+  .quick-presets { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin-bottom: 14px; }
+  .quick-presets button {
+    background: #1e1e1e; border: 1px solid #333; color: #ccc; border-radius: 6px;
+    padding: 6px 10px; font-size: 13px; cursor: pointer;
+  }
+  /* 試合終了時の勝敗表示(色旗イラスト+中央テキスト) */
+  .result-overlay { z-index: 20; background: rgba(0,0,0,0.92); }
+  .result-content {
+    display: flex; flex-direction: column; align-items: center;
+    gap: clamp(10px, 2.5vh, 24px); padding: 20px; width: min(640px, 94vw);
+  }
+  .result-flags {
+    display: flex; align-items: center; justify-content: center;
+    width: 100%; min-height: clamp(140px, 26vh, 260px);
+  }
+  .flag-svg {
+    width: clamp(130px, 24vw, 230px); height: auto;
+    transform-origin: 16% 94%;
+    filter: drop-shadow(0 4px 10px rgba(0,0,0,0.5));
+  }
+  .result-text {
+    font-size: clamp(30px, 6.5vw, 76px); font-weight: 800; color: #fff;
+    text-align: center; line-height: 1.2; white-space: nowrap;
+  }
+  #result-close { padding: 12px 28px; border-radius: 8px; border: none; font-size: 16px; cursor: pointer; }
+
+  /* 勝利表示: 勝った方の旗だけを中央に表示し、揺れるアニメーションを付ける */
+  .result-overlay.win-aka .flag-ao,
+  .result-overlay.win-ao .flag-aka { display: none; }
+  .result-overlay.win-aka .flag-aka,
+  .result-overlay.win-ao .flag-ao { animation: flagwave 1.6s ease-in-out infinite; }
+  .result-overlay.win-aka .result-text { color: var(--aka); }
+  .result-overlay.win-ao .result-text { color: var(--ao); }
+
+  /* 引き分け(判定): 赤旗・青旗をクロスさせて表示 */
+  .result-overlay.draw .flag-aka { transform: rotate(-32deg); margin-right: -12%; }
+  .result-overlay.draw .flag-ao { transform: rotate(32deg) scaleX(-1); margin-left: -12%; }
+  .result-overlay.draw .result-text { color: var(--yellow); font-size: clamp(22px, 5vw, 56px); }
+
+  @keyframes flagwave {
+    0%, 100% { transform: rotate(-6deg); }
+    50% { transform: rotate(6deg); }
+  }
+  .toggle-row {
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    background: #1b1b1b; border: 1px solid #333; border-radius: 8px;
+    padding: 10px 12px; margin-bottom: 14px; text-align: left;
+  }
+  .toggle-row .toggle-label { font-size: 14px; color: #ddd; }
+  .toggle-row .toggle-desc { font-size: 11px; color: #888; margin-top: 2px; }
+  .toggle-switch-btn {
+    flex: 0 0 auto; min-width: 64px; padding: 8px 14px; border-radius: 20px;
+    border: 1px solid #444; background: #2a2a2a; color: #ccc; font-size: 13px; cursor: pointer;
+  }
+  /* ===== 形(かた)モード ===== */
+  .kata-view { display:none; flex:1 1 auto; min-height:0; flex-direction:column; }
+  
+  .kata-head { flex:0 0 auto; display:flex; align-items:center; justify-content:space-between; gap:12px; padding:8px 16px; border-bottom:1px solid #222; }
+  .kata-name { font-size:clamp(20px,4.5vh,40px); font-weight:800; color:#fff; cursor:pointer; padding:2px 10px; border-radius:8px; border:1px dashed #444; max-width:70%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .kata-title { font-size:clamp(14px,3vh,24px); color:var(--yellow); font-weight:700; }
+  .kata-judges { flex:1 1 38%; min-height:0; display:flex; padding:4px 6px; }
+  .kj { flex:1; min-width:0; margin:4px; border:2px solid #555; border-radius:12px; display:flex; flex-direction:column; align-items:center; justify-content:center; cursor:pointer; background:#0d0d0d; overflow:hidden; }
+  .kj-label { font-size:clamp(11px,2.2vh,20px); color:#bbb; }
+  .kj-score { font-size:80px; font-weight:800; color:#fff; line-height:1; font-variant-numeric:tabular-nums; white-space:nowrap; }
+  .kj.empty .kj-score { color:#444; }
+  .kj-tag { font-size:clamp(10px,2vh,18px); color:#888; min-height:1.2em; }
+  .kj.excluded { border-color:#333; background:#080808; }
+  .kj.excluded .kj-score { color:#666; text-decoration:line-through; }
+  .kj.excluded .kj-tag { color:#ff9a2e; }
+  .kata-total { flex:1 1 38%; min-height:0; display:flex; flex-direction:column; align-items:center; justify-content:center; border-top:1px solid #222; }
+  .kata-total-label { font-size:clamp(12px,2.6vh,22px); color:#bbb; }
+  .kata-total-num { font-size:160px; font-weight:800; color:var(--yellow); text-shadow:0 0 18px rgba(242,212,58,.45); line-height:1; font-variant-numeric:tabular-nums; white-space:nowrap; }
+  .kata-total-num.pending { color:#444; text-shadow:none; }
+  .kfooter { flex:0 0 auto; display:flex; gap:2vw; justify-content:center; padding:10px 12px; background:#0a0a0a; border-top:1px solid #222; }
+  .kfooter button { flex:1; max-width:240px; background:#1a1a1a; color:#ddd; border:1px solid #444; border-radius:10px; padding:clamp(8px,2vh,18px) 8px; font-size:clamp(12px,2.4vw,22px); font-weight:700; cursor:pointer; }
+  .kfooter #kata-next { color:#9fe3a8; border-color:#2f6b3a; }
+  .kfooter #kata-reset { color:#ff8a8a; border-color:#7a1522; }
+  .kfooter #kata-undo { color:#ffd27a; border-color:#6b5420; }
+  .kpad-display { text-align:center; font-size:44px; font-weight:800; color:var(--yellow); min-height:56px; margin-bottom:6px; font-variant-numeric:tabular-nums; }
+  .kpad-hint { font-size:11px; color:#888; text-align:center; margin-bottom:10px; }
+  .kpad-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; }
+  .kpad-grid button { padding:12px 0; font-size:22px; font-weight:700; border-radius:10px; border:1px solid #444; background:#222; color:#fff; cursor:pointer; }
+  .kpad-grid button.sub { font-size:14px; background:#1a1a1a; color:#ccc; }
+  .kpad-grid button.ok { background:#2b6fe0; border-color:#2b6fe0; }
+  .kpad-err { color:#ff8a8a; font-size:12px; text-align:center; min-height:1.3em; }
+  .panel input.kname-input { width:100%; font-size:20px; text-align:left; padding:10px; }
+  .rank-list { max-height:52vh; overflow-y:auto; margin-bottom:10px; }
+  .rank-row { display:flex; align-items:center; gap:10px; padding:8px 4px; border-bottom:1px solid #2a2a2a; font-size:16px; }
+  .rank-row .rk { flex:0 0 2.2em; color:var(--yellow); font-weight:800; }
+  .rank-row .nm { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .rank-row .sc { font-weight:800; font-variant-numeric:tabular-nums; }
+  .rank-empty { color:#888; text-align:center; padding:14px 0; font-size:14px; }
+  @media (max-height: 520px) {
+    .kata-head { padding:3px 10px; } .kj { margin:2px; } .kj-tag { display:none; }
+    .kfooter { padding:4px 8px; gap:6px; } .kfooter button { padding:6px 4px; font-size:12px; }
+  }
+  .seg { display:flex; gap:8px; margin-bottom:14px; }
+  .seg button { flex:1; padding:10px; border-radius:8px; border:1px solid #444; background:#2a2a2a; color:#ccc; font-size:15px; cursor:pointer; }
+  .seg button.on { background:#2b6fe0; border-color:#2b6fe0; color:#fff; }
+  .toggle-notice { display:none; margin:-6px 0 14px; padding:8px 10px; border-radius:8px; background:#2a2410; border:1px solid #6b5420; color:#ffd27a; font-size:12px; line-height:1.5; text-align:left; }
+  .toggle-notice.show { display:block; }
+  .kata-view, .vs-view { display:none; flex:1 1 auto; min-height:0; flex-direction:column; }
+  .app.m-rank .kata-view, .app.m-vs .vs-view { display:flex; }
+  .credit { position:fixed; right:6px; bottom:2px; font-size:10px; color:rgba(255,255,255,.22); pointer-events:none; z-index:5; }
+  .flag-svg { width: clamp(130px, 24vw, 230px); height:auto; transform-origin:16% 94%; filter:drop-shadow(0 4px 10px rgba(0,0,0,.5)); }
+  .result-sub { white-space:pre-line; text-align:center; font-size:clamp(14px,2.6vw,26px); color:#ddd; font-weight:700; }
+  #result-close { padding:12px 28px; border-radius:8px; border:none; font-size:16px; cursor:pointer; }
+  .vs-tally { flex:0 0 auto; display:flex; align-items:stretch; border-bottom:1px solid #222; height:clamp(70px,26vh,200px); }
+  .vs-side { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; min-width:0; cursor:pointer; border:2px solid; margin:4px; border-radius:12px; }
+  .vs-side.aka { border-color:var(--aka); } .vs-side.ao { border-color:var(--ao); }
+  .vs-side.win { box-shadow: inset 0 0 40px 6px rgba(255,255,255,.28); }
+  .vs-votes { font-size:90px; font-weight:800; line-height:1; font-variant-numeric:tabular-nums; }
+  .vs-side.aka .vs-votes { color:var(--aka); text-shadow:0 0 18px rgba(230,57,74,.55); }
+  .vs-side.ao .vs-votes { color:var(--ao); text-shadow:0 0 18px rgba(58,91,220,.6); }
+  .vs-sum { font-size:clamp(11px,2.4vh,20px); color:#aaa; }
+  .vs-mid { flex:0 0 16%; display:flex; flex-direction:column; align-items:center; justify-content:center; }
+  .vs-title { font-size:clamp(13px,2.6vh,22px); color:var(--yellow); font-weight:700; }
+  .vs-unit { font-size:clamp(14px,3vh,26px); color:#bbb; }
+  .vs-rows { flex:1 1 auto; min-height:0; display:flex; flex-direction:column; padding:4px 6px; }
+  .vs-row { flex:1; min-height:0; display:flex; align-items:stretch; }
+  .vs-cell { flex:1; min-width:0; margin:3px; border:2px solid; border-radius:10px; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#0d0d0d; position:relative; overflow:hidden; }
+  .vs-cell.aka { border-color:#6b2029; } .vs-cell.ao { border-color:#1e2c70; }
+  .vs-cell .sc { font-size:60px; font-weight:800; color:#fff; line-height:1; font-variant-numeric:tabular-nums; white-space:nowrap; }
+  .vs-cell.empty .sc { color:#444; }
+  .vs-cell.win.aka { background:var(--aka); border-color:#ff8a95; } .vs-cell.win.ao { background:var(--ao); border-color:#8aa0ff; }
+  .vs-cell .vote { position:absolute; left:8px; top:4px; font-size:clamp(10px,2.2vh,18px); font-weight:700; color:#fff; display:none; }
+  .vs-cell.win .vote { display:block; }
+  .vs-jl { flex:0 0 16%; display:flex; align-items:center; justify-content:center; font-size:clamp(11px,2.6vh,22px); color:#bbb; font-weight:700; }
+  .vs-jl small { display:block; font-size:.7em; color:#888; text-align:center; }
+  .seg { display:flex; gap:8px; margin-bottom:14px; }
+  .seg button { flex:1; padding:10px; border-radius:8px; border:1px solid #444; background:#2a2a2a; color:#ccc; font-size:15px; cursor:pointer; }
+  .seg button.on { background:#2b6fe0; border-color:#2b6fe0; color:#fff; }
+  .toggle-notice { margin:0 0 14px; padding:8px 10px; border-radius:8px; background:#2a2410; border:1px solid #6b5420; color:#ffd27a; font-size:12px; line-height:1.5; text-align:left; }
+  .flag-aka, .flag-ao { display:block; }
+  .result-overlay.win-aka .flag-ao, .result-overlay.win-ao .flag-aka { display:none; }
+  .vs-hide { display:none; }
+  @media (max-height: 520px) { .vs-tally { height: 30vh; } .vs-side { margin:2px; } .vs-row .vs-cell { margin:2px; } .vs-jl small { display:none; } .credit { display:none; } }
+</style>
+</head>
+<body>
+<div class="app" id="app">
+  <!-- 順位戦(1人ずつ採点して順位表) -->
+  <div class="kata-view" id="kata-view">
+    <div class="kata-head"><div class="kata-name" id="kata-name">選手1</div><div class="kata-title">形</div></div>
+    <div class="kata-judges" id="kata-judges"></div>
+    <div class="kata-total">
+      <div class="kata-total-label" id="kata-total-label">合計(最高点・最低点を除く3名)</div>
+      <div class="kata-total-num pending" id="kata-total-num">—</div>
+    </div>
+    <div class="kfooter">
+      <button id="kata-settings">設定</button>
+      <button id="kata-rank">順位表</button>
+      <button id="kata-reset">リセット</button>
+      <button id="kata-undo">一つ前に戻す</button>
+      <button id="kata-next">次の選手へ(確定)</button>
+    </div>
+  </div>
+
+  <!-- 赤青対戦(審判ごとに高い方へ1票) -->
+  <div class="vs-view" id="vs-view">
+    <div class="vs-tally">
+      <div class="vs-side aka" id="vs-tally-a"><div class="vs-votes" id="vs-votes-a">0</div><div class="vs-sum" id="vs-sum-a">合計 —</div></div>
+      <div class="vs-mid"><div class="vs-title" id="vs-title">第1試合</div><div class="vs-unit">票</div></div>
+      <div class="vs-side ao" id="vs-tally-b"><div class="vs-votes" id="vs-votes-b">0</div><div class="vs-sum" id="vs-sum-b">合計 —</div></div>
+    </div>
+    <div class="vs-rows" id="vs-rows"></div>
+    <div class="kfooter">
+      <button id="vs-settings">設定</button>
+      <button id="vs-reset">リセット</button>
+      <button id="vs-undo">一つ前に戻す</button>
+      <button id="vs-next">次の試合へ</button>
+    </div>
+  </div>
+  <div class="credit" aria-hidden="true">©yamane1229</div>
+</div>
+
+<div class="overlay" id="settings-overlay">
+  <div class="panel">
+    <h3>設定</h3>
+    <h4>方式</h4>
+    <div class="seg"><button id="m-rank" class="on">順位戦</button><button id="m-vs">赤青対戦</button></div>
+    <div id="set-rank-only">
+      <h4>Judge人数(順位戦)</h4>
+      <div class="seg"><button id="kj-5" class="on">5人制</button><button id="kj-7">7人制</button></div>
+    </div>
+    <div class="toggle-notice show" id="set-vs-note">赤青対戦: Judge1〜5がそれぞれ赤・青に点数をつけ、高い方に1票。票が多い方の勝ちです(同票は合計点、それも同じなら引き分け)。</div>
+    <div class="panel-buttons"><button class="btn-primary" id="settings-close">閉じる</button></div>
+  </div>
+</div>
+
+<div class="overlay" id="kpad-overlay">
+  <div class="panel">
+    <h3 id="kpad-title">Judge1</h3>
+    <div class="kpad-display" id="kpad-display">&nbsp;</div>
+    <div class="kpad-hint">例: 72 → 7.2 / 85 → 8.5 / 100 → 10.0</div>
+    <div class="kpad-err" id="kpad-err"></div>
+    <div class="kpad-grid">
+      <button data-k="1">1</button><button data-k="2">2</button><button data-k="3">3</button>
+      <button data-k="4">4</button><button data-k="5">5</button><button data-k="6">6</button>
+      <button data-k="7">7</button><button data-k="8">8</button><button data-k="9">9</button>
+      <button data-k="back" class="sub">削除</button><button data-k="0">0</button><button data-k="." >.</button>
+      <button data-k="clear" class="sub">この点を消す</button><button data-k="cancel" class="sub">キャンセル</button><button data-k="ok" class="ok">OK</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="kname-overlay">
+  <div class="panel">
+    <h3>選手名</h3>
+    <input type="text" class="kname-input" id="kname-input" maxlength="20" placeholder="選手名(任意)">
+    <div class="panel-buttons">
+      <button class="btn-secondary" id="kname-cancel">キャンセル</button>
+      <button class="btn-primary" id="kname-ok">決定</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="kreset-overlay">
+  <div class="panel">
+    <h3>リセットしますか？</h3>
+    <div style="font-size:13px;color:#aaa;text-align:center;margin-bottom:12px;line-height:1.6" id="kreset-text"></div>
+    <div class="panel-buttons">
+      <button class="btn-secondary" id="kreset-cancel">キャンセル</button>
+      <button class="btn-danger" id="kreset-ok">リセットする</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="rank-overlay">
+  <div class="panel">
+    <h3>順位表</h3>
+    <div class="rank-list" id="rank-list"></div>
+    <div class="panel-buttons"><button class="btn-secondary" id="rank-close">閉じる</button></div>
+  </div>
+</div>
+
+<div class="overlay result-overlay" id="result-overlay">
+  <div class="result-content">
+    <div class="result-flags">
+      <svg class="flag-svg flag-aka" viewBox="0 0 120 100" aria-hidden="true">
+        <rect x="10" y="4" width="9" height="92" rx="3" fill="#1a1a1a"/>
+        <path d="M19,9 C50,-2 72,20 101,9 C95,25 95,41 101,57 C72,46 50,68 19,57 Z" fill="var(--aka)"/>
+      </svg>
+      <svg class="flag-svg flag-ao" viewBox="0 0 120 100" aria-hidden="true">
+        <rect x="10" y="4" width="9" height="92" rx="3" fill="#1a1a1a"/>
+        <path d="M19,9 C50,-2 72,20 101,9 C95,25 95,41 101,57 C72,46 50,68 19,57 Z" fill="var(--ao)"/>
+      </svg>
+    </div>
+    <div class="result-text" id="result-text">赤の勝利</div>
+    <div class="result-sub" id="result-sub"></div>
+    <button class="btn-secondary" id="result-close">閉じる</button>
+  </div>
+</div>
+
+<script>
+(function(){
+  // shrink/grow el's font-size by binary search until it fills (availW x availH) as much as possible
+  function fitTextElement(el, availW, availH, minFont, maxFont){
+    if (availW <= 0 || availH <= 0) return;
+    minFont = minFont || 10;
+    maxFont = maxFont || 500;
+    var lo = minFont, hi = maxFont, best = minFont;
+    for (var i = 0; i < 18; i++){
+      var mid = (lo + hi) / 2;
+      el.style.fontSize = mid + 'px';
+      var w = el.scrollWidth, h = el.scrollHeight;
+      if (w <= availW && h <= availH) { best = mid; lo = mid; } else { hi = mid; }
+    }
+    el.style.fontSize = best + 'px';
+  }
+
+  // --- sound effects ---
+  var audioCtx = null;
+  function getAudioCtx(){
+    if (!audioCtx) {
+      try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch(e) { return null; }
+    }
+    if (audioCtx.state === 'suspended') { try { audioCtx.resume(); } catch(e) {} }
+    return audioCtx;
+  }
+
+  // 操作音: 金属系の短いクリック音(タップ全般で再生)
+  function playTapSound(){
+    var ctx = getAudioCtx();
+    if (!ctx) return;
+    var now = ctx.currentTime;
+    // 短いノイズバースト(アタック感)
+    var bufLen = Math.floor(ctx.sampleRate * 0.04);
+    var buffer = ctx.createBuffer(1, bufLen, ctx.sampleRate);
+    var data = buffer.getChannelData(0);
+    for (var i = 0; i < bufLen; i++){
+      data[i] = (Math.random()*2-1) * Math.pow(1 - i/bufLen, 2.5);
+    }
+    var noise = ctx.createBufferSource();
+    noise.buffer = buffer;
+    var bandpass = ctx.createBiquadFilter();
+    bandpass.type = 'bandpass';
+    bandpass.frequency.value = 3400;
+    bandpass.Q.value = 3;
+    var noiseGain = ctx.createGain();
+    noiseGain.gain.setValueAtTime(0.35, now);
+    noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.045);
+    noise.connect(bandpass); bandpass.connect(noiseGain); noiseGain.connect(ctx.destination);
+    noise.start(now); noise.stop(now + 0.045);
+
+    // 金属的な高音のピン(2音)で「カチッ」という質感を足す
+    [2800, 4200].forEach(function(freq, idx){
+      var o = ctx.createOscillator();
+      var g = ctx.createGain();
+      o.type = 'triangle';
+      o.frequency.value = freq;
+      g.gain.setValueAtTime(0.12/(idx+1), now);
+      g.gain.exponentialRampToValueAtTime(0.0001, now + 0.07);
+      o.connect(g); g.connect(ctx.destination);
+      o.start(now); o.stop(now + 0.07);
+    });
+  }
+
+  // ================= 形 共通 =================
+  var KATA_KEY = 'karate-kata-v1';        // 順位戦のデータ(従来と同じ)
+  var CFG_KEY = 'karate-kata-v2';         // 方式・赤青対戦のデータ
+  var kata = { n: 5, name: '', judges: [null,null,null,null,null], results: [], hist: [] };
+  var cfg = { mode: 'rank' };
+  var vs = { a: [null,null,null,null,null], b: [null,null,null,null,null], no: 1, shown: false, hist: [] };
+  var appEl = document.getElementById('app');
+  function emptyJudges(n){ var a = []; for (var i = 0; i < n; i++) a.push(null); return a; }
+  function fmtTenths(v){ return (v/10).toFixed(1); }
+
+  function loadAll(){
+    try {
+      var r = JSON.parse(localStorage.getItem(KATA_KEY) || 'null');
+      if (r) { kata.n = (r.n === 7) ? 7 : 5; kata.name = r.name || ''; kata.results = r.results || []; kata.judges = (r.judges && r.judges.length === kata.n) ? r.judges : emptyJudges(kata.n); }
+    } catch(e) {}
+    try {
+      var c = JSON.parse(localStorage.getItem(CFG_KEY) || 'null');
+      if (c) {
+        if (c.mode === 'vs') cfg.mode = 'vs';
+        if (c.vs && c.vs.a && c.vs.a.length === 5 && c.vs.b && c.vs.b.length === 5) { vs.a = c.vs.a; vs.b = c.vs.b; vs.no = c.vs.no || 1; vs.shown = !!c.vs.shown; }
+      }
+    } catch(e) {}
+  }
+  function saveKata(){ try { localStorage.setItem(KATA_KEY, JSON.stringify({ n: kata.n, name: kata.name, judges: kata.judges, results: kata.results })); } catch(e) {} }
+  function saveCfg(){ try { localStorage.setItem(CFG_KEY, JSON.stringify({ mode: cfg.mode, vs: { a: vs.a, b: vs.b, no: vs.no, shown: vs.shown } })); } catch(e) {} }
+
+  // ================= 赤青対戦 =================
+  // 結果: 各Judgeが高い方に1票(同点は票なし)。票が多い方が勝ち。同票なら合計点、それも同じなら引き分け
+  function vsCompute(){
+    var va = 0, vb = 0, sa = 0, sb = 0, done = true, per = [];
+    for (var i = 0; i < 5; i++) {
+      var a = vs.a[i], b = vs.b[i], w = null;
+      if (a === null || b === null) done = false;
+      else { if (a > b) { va++; w = 'a'; } else if (b > a) { vb++; w = 'b'; } }
+      if (a !== null) sa += a; if (b !== null) sb += b;
+      per.push(w);
+    }
+    var win = null, byTotal = false;
+    if (done) {
+      if (va !== vb) win = va > vb ? 'a' : 'b';
+      else if (sa !== sb) { win = sa > sb ? 'a' : 'b'; byTotal = true; }
+      else win = 'draw';
+    }
+    return { va: va, vb: vb, sa: sa, sb: sb, done: done, per: per, win: win, byTotal: byTotal };
+  }
+  function vsPush(){ vs.hist.push(JSON.stringify({ a: vs.a, b: vs.b, shown: vs.shown })); if (vs.hist.length > 40) vs.hist.shift(); }
+  function buildVsRows(){
+    var h = '';
+    for (var i = 0; i < 5; i++) {
+      h += '<div class="vs-row">' +
+        '<div class="vs-cell aka empty" data-s="a" data-i="'+i+'"><span class="vote">1票</span><span class="sc">—</span></div>' +
+        '<div class="vs-jl">Judge'+(i+1)+'</div>' +
+        '<div class="vs-cell ao empty" data-s="b" data-i="'+i+'"><span class="vote">1票</span><span class="sc">—</span></div></div>';
+    }
+    document.getElementById('vs-rows').innerHTML = h;
+  }
+  document.getElementById('vs-rows').addEventListener('click', function(e){
+    var c = e.target.closest('.vs-cell'); if (!c) return;
+    playTapSound(); openKpad({ s: c.dataset.s, i: parseInt(c.dataset.i, 10) });
+  });
+  function renderVs(){
+    var c = vsCompute();
+    document.querySelectorAll('#vs-rows .vs-cell').forEach(function(el){
+      var s = el.dataset.s, i = parseInt(el.dataset.i, 10), v = vs[s][i];
+      el.classList.toggle('empty', v === null);
+      el.classList.toggle('win', c.per[i] === s);
+      el.querySelector('.sc').textContent = v === null ? '—' : fmtTenths(v);
+    });
+    document.getElementById('vs-votes-a').textContent = c.va;
+    document.getElementById('vs-votes-b').textContent = c.vb;
+    var any = vs.a.concat(vs.b).some(function(v){ return v !== null; });
+    document.getElementById('vs-sum-a').textContent = '合計 ' + (any ? fmtTenths(c.sa) : '—');
+    document.getElementById('vs-sum-b').textContent = '合計 ' + (any ? fmtTenths(c.sb) : '—');
+    document.getElementById('vs-tally-a').classList.toggle('win', c.win === 'a');
+    document.getElementById('vs-tally-b').classList.toggle('win', c.win === 'b');
+    document.getElementById('vs-title').textContent = '第' + vs.no + '試合';
+    fitVs();
+  }
+  function fitVs(){
+    if (cfg.mode !== 'vs') return;
+    document.querySelectorAll('#vs-rows .vs-cell').forEach(function(el){
+      fitTextElement(el.querySelector('.sc'), el.clientWidth - 20, el.clientHeight - 8, 14, 200);
+    });
+    ['a','b'].forEach(function(s){
+      var box = document.getElementById('vs-tally-' + s);
+      fitTextElement(document.getElementById('vs-votes-' + s), box.clientWidth - 16, box.clientHeight - document.getElementById('vs-sum-' + s).offsetHeight - 12, 24, 400);
+    });
+  }
+  function showVsResult(){
+    var c = vsCompute(); if (!c.done) return;
+    var ov = document.getElementById('result-overlay');
+    ov.classList.remove('win-aka', 'win-ao', 'draw');
+    var t = document.getElementById('result-text');
+    if (c.win === 'a') { ov.classList.add('win-aka'); t.textContent = '赤の勝利'; }
+    else if (c.win === 'b') { ov.classList.add('win-ao'); t.textContent = '青の勝利'; }
+    else { ov.classList.add('draw'); t.textContent = '引き分け'; }
+    document.getElementById('result-sub').textContent = '赤 ' + c.va + '票 − ' + c.vb + '票 青' + (c.byTotal ? '\n同票のため合計点で判定(' + fmtTenths(c.sa) + ' − ' + fmtTenths(c.sb) + ')' : '');
+    ov.classList.add('show');
+  }
+  document.getElementById('result-close').addEventListener('click', function(){ playTapSound(); document.getElementById('result-overlay').classList.remove('show'); });
+  ['vs-tally-a', 'vs-tally-b'].forEach(function(id){
+    document.getElementById(id).addEventListener('click', function(){ playTapSound(); showVsResult(); });
+  });
+  document.getElementById('vs-undo').addEventListener('click', function(){
+    playTapSound();
+    if (!vs.hist.length) return;
+    var s = JSON.parse(vs.hist.pop()); vs.a = s.a; vs.b = s.b; vs.shown = s.shown;
+    saveCfg(); renderVs();
+  });
+  document.getElementById('vs-next').addEventListener('click', function(){
+    playTapSound();
+    var c = vsCompute();
+    if (!c.done) { openNextVs(null); return; }
+    vs.a = emptyJudges(5); vs.b = emptyJudges(5); vs.no++; vs.shown = false; vs.hist = [];
+    saveCfg(); renderVs();
+  });
+  // 入力順: Judge1赤 → Judge1青 → Judge2赤 …。次の未入力へ進む
+  function openNextVs(cur){
+    var order = []; for (var i = 0; i < 5; i++) { order.push({ s:'a', i:i }); order.push({ s:'b', i:i }); }
+    var start = 0;
+    if (cur) for (var k = 0; k < order.length; k++) if (order[k].s === cur.s && order[k].i === cur.i) start = k + 1;
+    for (var j = start; j < order.length; j++) if (vs[order[j].s][order[j].i] === null) return openKpad(order[j]);
+    closeKpad();
+    if (vsCompute().done && !vs.shown) { vs.shown = true; saveCfg(); showVsResult(); }
+  }
+
+  // ================= 順位戦 =================
+  function kataName(){ return kata.name || ('選手' + (kata.results.length + 1)); }
+  function kataCompute(){
+    if (kata.judges.some(function(v){ return v === null; })) return null;
+    var n = kata.n, drop = 1;
+    var idx = []; for (var i = 0; i < n; i++) idx.push(i);
+    idx.sort(function(a,b){ return kata.judges[a] - kata.judges[b] || a - b; });
+    var sum = 0;
+    for (var k = drop; k < n - drop; k++) sum += kata.judges[idx[k]];
+    return { total: sum, lo: idx.slice(0, drop), hi: idx.slice(n - drop) };
+  }
+  function kataPush(){ kata.hist.push(JSON.stringify({ judges: kata.judges, name: kata.name })); if (kata.hist.length > 40) kata.hist.shift(); }
+  function buildKataJudges(){
+    var h = '';
+    for (var i = 0; i < kata.n; i++) {
+      h += '<div class="kj empty" data-i="'+i+'"><div class="kj-label">Judge'+(i+1)+'</div><div class="kj-score">—</div><div class="kj-tag"></div></div>';
+    }
+    var box = document.getElementById('kata-judges');
+    box.innerHTML = h;
+    box.querySelectorAll('.kj').forEach(function(el){
+      el.addEventListener('click', function(){ playTapSound(); openKpad({ s:'k', i: parseInt(el.dataset.i, 10) }); });
+    });
+    document.getElementById('kata-total-label').textContent = '合計(最高点・最低点を除く' + (kata.n - 2) + '名)';
+  }
+  function renderKata(){
+    document.getElementById('kata-name').textContent = kataName();
+    var c = kataCompute();
+    document.querySelectorAll('#kata-judges .kj').forEach(function(el){
+      var i = parseInt(el.dataset.i, 10), v = kata.judges[i];
+      el.classList.toggle('empty', v === null);
+      el.querySelector('.kj-score').textContent = v === null ? '—' : fmtTenths(v);
+      var isHi = c && c.hi.indexOf(i) >= 0, isLo = c && c.lo.indexOf(i) >= 0;
+      el.classList.toggle('excluded', !!(isHi || isLo));
+      el.querySelector('.kj-tag').textContent = isHi ? '除外(最高)' : (isLo ? '除外(最低)' : '');
+    });
+    var t = document.getElementById('kata-total-num');
+    t.textContent = c ? fmtTenths(c.total) : '—';
+    t.classList.toggle('pending', !c);
+    fitKata();
+  }
+  function fitKata(){
+    if (cfg.mode !== 'rank') return;
+    document.querySelectorAll('#kata-judges .kj').forEach(function(el){
+      var s = el.querySelector('.kj-score');
+      var used = el.querySelector('.kj-label').offsetHeight + el.querySelector('.kj-tag').offsetHeight + 12;
+      fitTextElement(s, el.clientWidth - 40, el.clientHeight - used, 20, 260);
+    });
+    var tot = document.querySelector('.kata-total');
+    var tn = document.getElementById('kata-total-num');
+    if (tot && tn) fitTextElement(tn, tot.clientWidth - 24, tot.clientHeight - document.querySelector('.kata-total-label').offsetHeight - 12, 30, 500);
+  }
+
+  // --- 点数入力パッド(順位戦・赤青対戦 共通) ---
+  var kpadTarget = null, kpadStr = '';
+  function getScore(t){ return t.s === 'k' ? kata.judges[t.i] : vs[t.s][t.i]; }
+  function setScore(t, v){ if (t.s === 'k') kata.judges[t.i] = v; else vs[t.s][t.i] = v; }
+  function parseKpad(str){
+    if (!str) return null;
+    var tenths;
+    if (str.indexOf('.') >= 0) {
+      if (!/^\d{1,2}(\.\d?)?$/.test(str)) return NaN;
+      tenths = Math.round(parseFloat(str) * 10);
+    } else if (/^\d+$/.test(str)) {
+      if (str.length === 1) tenths = parseInt(str, 10) * 10;
+      else if (str === '10') tenths = 100;
+      else if (str.length === 2) tenths = parseInt(str, 10);
+      else if (str.length === 3) tenths = parseInt(str, 10);
+      else return NaN;
+    } else return NaN;
+    return tenths;
+  }
+  function kpadShow(){
+    document.getElementById('kpad-display').innerHTML = kpadStr ? kpadStr : '&nbsp;';
+    var v = parseKpad(kpadStr);
+    var err = document.getElementById('kpad-err');
+    if (kpadStr && (isNaN(v) || v < 0 || v > 100)) err.textContent = '0〜10.0の範囲で入力してください';
+    else if (kpadStr) err.textContent = '→ ' + fmtTenths(v);
+    else err.textContent = '';
+  }
+  function openKpad(t){
+    kpadTarget = t; kpadStr = '';
+    var cur = getScore(t);
+    var title = 'Judge' + (t.i + 1) + (t.s === 'a' ? '(赤)' : (t.s === 'b' ? '(青)' : ''));
+    var el = document.getElementById('kpad-title');
+    el.textContent = title + (cur !== null ? '(現在 ' + fmtTenths(cur) + ')' : '');
+    el.style.color = t.s === 'a' ? 'var(--aka)' : (t.s === 'b' ? '#7f9bff' : '');
+    kpadShow();
+    document.getElementById('kpad-overlay').classList.add('show');
+  }
+  function closeKpad(){ document.getElementById('kpad-overlay').classList.remove('show'); kpadTarget = null; }
+  function afterChange(){ if (kpadTarget && kpadTarget.s === 'k') { saveKata(); renderKata(); } else { saveCfg(); renderVs(); } }
+  function kpadOk(){
+    var v = parseKpad(kpadStr);
+    if (v === null || isNaN(v) || v < 0 || v > 100) { kpadShow(); return; }
+    var t = kpadTarget;
+    if (t.s === 'k') kataPush(); else vsPush();
+    setScore(t, v);
+    afterChange();
+    if (t.s === 'k') {
+      var next = -1;
+      for (var j = t.i + 1; j < kata.n; j++) { if (kata.judges[j] === null) { next = j; break; } }
+      if (next >= 0) openKpad({ s:'k', i: next }); else closeKpad();
+    } else {
+      openNextVs(t);
+    }
+  }
+  document.querySelectorAll('#kpad-overlay .kpad-grid button').forEach(function(b){
+    b.addEventListener('click', function(){
+      playTapSound();
+      var k = b.dataset.k;
+      if (k === 'ok') return kpadOk();
+      if (k === 'cancel') return closeKpad();
+      if (k === 'clear') {
+        if (getScore(kpadTarget) !== null) {
+          if (kpadTarget.s === 'k') kataPush(); else vsPush();
+          setScore(kpadTarget, null); afterChange();
+        }
+        return closeKpad();
+      }
+      if (k === 'back') kpadStr = kpadStr.slice(0, -1);
+      else if (k === '.') { if (kpadStr.indexOf('.') < 0) kpadStr += (kpadStr ? '.' : '0.'); }
+      else if (kpadStr.length < 4) kpadStr += k;
+      kpadShow();
+    });
+  });
+
+  // --- 選手名(順位戦) ---
+  document.getElementById('kata-name').addEventListener('click', function(){
+    playTapSound();
+    document.getElementById('kname-input').value = kata.name;
+    document.getElementById('kname-overlay').classList.add('show');
+    setTimeout(function(){ document.getElementById('kname-input').focus(); }, 50);
+  });
+  document.getElementById('kname-cancel').addEventListener('click', function(){ playTapSound(); document.getElementById('kname-overlay').classList.remove('show'); });
+  document.getElementById('kname-ok').addEventListener('click', function(){
+    playTapSound(); kataPush();
+    kata.name = document.getElementById('kname-input').value.trim();
+    saveKata(); renderKata();
+    document.getElementById('kname-overlay').classList.remove('show');
+  });
+
+  // --- 順位表 ---
+  function renderRank(){
+    var list = document.getElementById('rank-list');
+    if (kata.results.length === 0) { list.innerHTML = '<div class="rank-empty">まだ確定した選手がいません</div>'; return; }
+    var sorted = kata.results.slice().sort(function(a,b){ return b.total - a.total; });
+    var h = '', rank = 0, prev = null;
+    sorted.forEach(function(r, i){
+      if (prev === null || r.total !== prev) rank = i + 1;
+      prev = r.total;
+      var nm = String(r.name).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; });
+      h += '<div class="rank-row"><div class="rk">'+rank+'位</div><div class="nm">'+nm+'</div><div class="sc">'+fmtTenths(r.total)+'</div></div>';
+    });
+    list.innerHTML = h;
+  }
+  document.getElementById('kata-rank').addEventListener('click', function(){
+    playTapSound(); renderRank();
+    document.getElementById('rank-overlay').classList.add('show');
+  });
+  document.getElementById('rank-close').addEventListener('click', function(){ playTapSound(); document.getElementById('rank-overlay').classList.remove('show'); });
+
+  // --- リセット(方式ごと) ---
+  function openReset(){
+    document.getElementById('kreset-text').textContent = cfg.mode === 'vs'
+      ? '試合番号を第1試合に戻し、入力中の点数を消します。'
+      : '順位表の記録と、左上の選手番号を最初(選手1)に戻します。入力中の点数も消えます。';
+    document.getElementById('kreset-overlay').classList.add('show');
+  }
+  document.getElementById('kata-reset').addEventListener('click', function(){ playTapSound(); openReset(); });
+  document.getElementById('vs-reset').addEventListener('click', function(){ playTapSound(); openReset(); });
+  document.getElementById('kreset-cancel').addEventListener('click', function(){ playTapSound(); document.getElementById('kreset-overlay').classList.remove('show'); });
+  document.getElementById('kreset-ok').addEventListener('click', function(){
+    playTapSound();
+    if (cfg.mode === 'vs') { vs.a = emptyJudges(5); vs.b = emptyJudges(5); vs.no = 1; vs.shown = false; vs.hist = []; saveCfg(); renderVs(); }
+    else { kata.results = []; kata.name = ''; kata.judges = emptyJudges(kata.n); kata.hist = []; saveKata(); renderKata(); }
+    document.getElementById('kreset-overlay').classList.remove('show');
+  });
+  document.getElementById('kata-undo').addEventListener('click', function(){
+    playTapSound();
+    if (!kata.hist.length) return;
+    var snap = JSON.parse(kata.hist.pop());
+    if (snap.judges.length === kata.n) { kata.judges = snap.judges; kata.name = snap.name; }
+    saveKata(); renderKata();
+  });
+  document.getElementById('kata-next').addEventListener('click', function(){
+    playTapSound();
+    var c = kataCompute();
+    if (!c) { openKpad({ s:'k', i: kata.judges.indexOf(null) }); return; }
+    kata.results.push({ name: kataName(), total: c.total, scores: kata.judges.slice() });
+    kata.judges = emptyJudges(kata.n); kata.name = ''; kata.hist = [];
+    saveKata(); renderKata();
+  });
+
+  // --- 設定 ---
+  function updateSettingsUi(){
+    document.getElementById('m-rank').classList.toggle('on', cfg.mode === 'rank');
+    document.getElementById('m-vs').classList.toggle('on', cfg.mode === 'vs');
+    document.getElementById('kj-5').classList.toggle('on', kata.n === 5);
+    document.getElementById('kj-7').classList.toggle('on', kata.n === 7);
+    document.getElementById('set-rank-only').style.display = cfg.mode === 'rank' ? '' : 'none';
+    document.getElementById('set-vs-note').style.display = cfg.mode === 'vs' ? '' : 'none';
+  }
+  function applyMode(){
+    appEl.classList.toggle('m-rank', cfg.mode === 'rank');
+    appEl.classList.toggle('m-vs', cfg.mode === 'vs');
+    updateSettingsUi(); renderKata(); renderVs();
+  }
+  function openSettings(){ playTapSound(); updateSettingsUi(); document.getElementById('settings-overlay').classList.add('show'); }
+  document.getElementById('kata-settings').addEventListener('click', openSettings);
+  document.getElementById('vs-settings').addEventListener('click', openSettings);
+  document.getElementById('settings-close').addEventListener('click', function(){ playTapSound(); document.getElementById('settings-overlay').classList.remove('show'); });
+  document.getElementById('m-rank').addEventListener('click', function(){ playTapSound(); cfg.mode = 'rank'; saveCfg(); applyMode(); });
+  document.getElementById('m-vs').addEventListener('click', function(){ playTapSound(); cfg.mode = 'vs'; saveCfg(); applyMode(); });
+  function setJudgeCount(n){
+    playTapSound();
+    if (n === kata.n) return;
+    kata.n = n; kata.judges = emptyJudges(n); kata.hist = [];
+    saveKata(); buildKataJudges(); renderKata(); updateSettingsUi();
+  }
+  document.getElementById('kj-5').addEventListener('click', function(){ setJudgeCount(5); });
+  document.getElementById('kj-7').addEventListener('click', function(){ setJudgeCount(7); });
+
+  var resizeTimer = null;
+  window.addEventListener('resize', function(){ clearTimeout(resizeTimer); resizeTimer = setTimeout(function(){ fitKata(); fitVs(); }, 100); });
+  window.addEventListener('orientationchange', function(){ setTimeout(function(){ fitKata(); fitVs(); }, 300); });
+
+  loadAll(); buildKataJudges(); buildVsRows(); applyMode();
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', function(){ navigator.serviceWorker.register('sw.js').catch(function(){}); });
+  }
+})();
+</script>
+</body>
+</html>
